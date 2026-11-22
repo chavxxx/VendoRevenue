@@ -49,6 +49,11 @@ export const DashboardPage: React.FC = () => {
   const [topVendos, setTopVendos] = useState<TopEntityItem[]>([]);
   const [locations, setLocations] = useState<LocationPerformanceItem[]>([]);
   
+  // Municipality filter and sorting states
+  const [municipalities, setMunicipalities] = useState<string[]>([]);
+  const [selectedMunicipality, setSelectedMunicipality] = useState<string>('all');
+  const [locationSort, setLocationSort] = useState<'revenue_desc' | 'revenue_asc' | 'name_asc' | 'vendos_desc'>('revenue_desc');
+  
   // Harvester Performance states
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [allHarvesters, setAllHarvesters] = useState<HarvesterPerformanceItem[]>([]);
@@ -57,21 +62,27 @@ export const DashboardPage: React.FC = () => {
   
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Load staff list once for dropdown selection
+  // Load staff list and municipalities
   useEffect(() => {
-    const fetchStaff = async () => {
+    const fetchInitialData = async () => {
       try {
-        const staff = await api.getStaff({ limit: 100 });
+        const [staff, munis] = await Promise.all([
+          api.getStaff({ limit: 100 }),
+          api.getMunicipalities()
+        ]);
         setStaffList(staff);
         if (staff.length > 0 && selectedStaffId === null) {
           const harvester = staff.find((s: Staff) => s.role_type === 'FIELD_HARVESTER') || staff[0];
           setSelectedStaffId(harvester.id);
         }
+        if (Array.isArray(munis)) {
+          setMunicipalities(munis);
+        }
       } catch (err) {
-        console.error('Failed to load staff list', err);
+        console.error('Failed to load initial data', err);
       }
     };
-    fetchStaff();
+    fetchInitialData();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -81,15 +92,23 @@ export const DashboardPage: React.FC = () => {
       filterParams.start_date = customStartDate;
       filterParams.end_date = customEndDate;
     }
+    if (selectedMunicipality !== 'all') {
+      filterParams.municipality = selectedMunicipality;
+    }
 
     try {
       if (activeTab === 'fleet') {
+        const topVendosParams: Record<string, any> = { limit: 8 };
+        if (selectedMunicipality !== 'all') {
+          topVendosParams.municipality = selectedMunicipality;
+        }
+
         const [sumRes, dailyRes, monthlyRes, vendosRes, locsRes] = await Promise.all([
           api.getDashboardSummary(filterParams),
           api.getDailyChart(14),
           api.getMonthlyChart(6),
-          api.getTopVendos(8),
-          api.getLocationPerformance()
+          api.getTopVendos(topVendosParams),
+          api.getLocationPerformance({ sort_by: locationSort })
         ]);
         setSummary(sumRes);
         setDailyChart(dailyRes);
@@ -112,7 +131,7 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [activeTab, period, customStartDate, customEndDate, selectedStaffId]);
+  }, [activeTab, period, customStartDate, customEndDate, selectedStaffId, selectedMunicipality, locationSort]);
 
   const formatPeso = (val?: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -243,6 +262,24 @@ export const DashboardPage: React.FC = () => {
                   <option key={s.id} value={s.id}>
                     {s.full_name} ({s.staff_code})
                   </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Municipality Filter for Fleet Overview */}
+          {activeTab === 'fleet' && (
+            <div className="flex items-center space-x-1.5 ml-2 pl-3 border-l border-gray-200 dark:border-slate-800">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="font-bold text-gray-700 dark:text-slate-300">Municipality:</span>
+              <select
+                value={selectedMunicipality}
+                onChange={(e) => setSelectedMunicipality(e.target.value)}
+                className="bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs font-semibold text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="all">All Municipalities</option>
+                {municipalities.map((m) => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
@@ -433,21 +470,69 @@ export const DashboardPage: React.FC = () => {
 
             {/* Location Performance */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
-              <h2 className="text-base font-bold text-navy-900 dark:text-white mb-1 flex items-center">
-                <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
-                Performance by Location
-              </h2>
-              <p className="text-xs text-gray-400 dark:text-slate-500 mb-4">Geographic distribution and collections</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-navy-900 dark:text-white flex items-center">
+                    <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
+                    Performance by Location & Municipality
+                  </h2>
+                  <p className="text-xs text-gray-400 dark:text-slate-500">Geographic distribution and collections</p>
+                </div>
+
+                <div className="flex items-center space-x-1.5 text-xs">
+                  <span className="text-gray-500 dark:text-slate-400 font-medium">Sort:</span>
+                  <select
+                    value={locationSort}
+                    onChange={(e: any) => setLocationSort(e.target.value)}
+                    className="bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs font-semibold text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="revenue_desc">Highest Revenue</option>
+                    <option value="revenue_asc">Lowest Revenue</option>
+                    <option value="vendos_desc">Most Vendos</option>
+                    <option value="name_asc">Municipality (A - Z)</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-3">
-                {locations.map((loc) => (
-                  <div key={loc.location} className="p-2.5 rounded-xl bg-gray-50 dark:bg-slate-950 border border-gray-100 dark:border-slate-800/50 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold text-navy-900 dark:text-white">{loc.location}</div>
-                      <div className="text-[10px] text-gray-500 dark:text-slate-400">{loc.vendo_count} Machines Deployed</div>
-                    </div>
-                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(loc.total_gross)}</div>
+                {locations.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-gray-400 dark:text-slate-500">
+                    No municipality data recorded yet.
                   </div>
-                ))}
+                ) : (
+                  locations.map((loc) => (
+                    <div
+                      key={loc.location}
+                      onClick={() => setSelectedMunicipality(loc.location === selectedMunicipality ? 'all' : loc.location)}
+                      className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                        selectedMunicipality === loc.location
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-500'
+                          : 'bg-gray-50 dark:bg-slate-950 border-gray-100 dark:border-slate-800/50 hover:border-gray-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-navy-900 dark:text-white flex items-center space-x-2">
+                            <span>{loc.location}</span>
+                            {selectedMunicipality === loc.location && (
+                              <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-md">
+                                Filtered
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-gray-500 dark:text-slate-400">{loc.vendo_count} Machines Deployed</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(loc.total_gross)}</div>
+                        <div className="text-[10px] text-gray-400 dark:text-slate-500">Total Gross</div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

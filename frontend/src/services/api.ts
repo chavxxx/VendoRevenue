@@ -113,8 +113,18 @@ export const api = {
   },
   getDailyChart: (days: number = 14) => apiRequest(`/dashboard/charts/daily?days=${days}`),
   getMonthlyChart: (months: number = 6) => apiRequest(`/dashboard/charts/monthly?months=${months}`),
-  getTopVendos: (limit: number = 10) => apiRequest(`/dashboard/charts/top-vendos?limit=${limit}`),
-  getLocationPerformance: () => apiRequest('/dashboard/charts/locations'),
+  getTopVendos: (params: Record<string, any> | number = 10) => {
+    if (typeof params === 'number') {
+      return apiRequest(`/dashboard/charts/top-vendos?limit=${params}`);
+    }
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/dashboard/charts/top-vendos?${query}`);
+  },
+  getLocationPerformance: (params: Record<string, any> = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/dashboard/charts/locations?${query}`);
+  },
+  getMunicipalities: () => apiRequest('/dashboard/municipalities'),
 
   // Harvesters Performance (Requirements 1 & 2)
   getHarvestersPerformance: (params: Record<string, any> = {}) => {

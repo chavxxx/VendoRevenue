@@ -52,11 +52,16 @@ def get_dashboard_summary(
     period: str = Query("this_month", description="today, yesterday, this_week, last_week, this_month, last_month, this_year, all_time, custom"),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
+    municipality: Optional[str] = Query(None, description="Filter by municipality/city"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
-    total_vendos = db.query(VendoMachine).count()
-    active_vendos = db.query(VendoMachine).filter(VendoMachine.status == VendoStatus.ACTIVE).count()
+    vendo_query = db.query(VendoMachine)
+    if municipality:
+        vendo_query = vendo_query.filter(VendoMachine.city_municipality == municipality)
+
+    total_vendos = vendo_query.count()
+    active_vendos = vendo_query.filter(VendoMachine.status == VendoStatus.ACTIVE).count()
     inactive_vendos = total_vendos - active_vendos
     total_partners = 0
     
@@ -66,6 +71,10 @@ def get_dashboard_summary(
         func.coalesce(func.sum(HarvestTransaction.gartech_net), Decimal("0.00")).label("gartech_net")
     ).filter(HarvestTransaction.status == HarvestStatus.APPROVED)
     
+    if municipality:
+        txn_query = txn_query.join(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)\
+                             .filter(VendoMachine.city_municipality == municipality)
+
     if period != "all_time":
         d_start, d_end = get_date_bounds(period, start_date, end_date)
         txn_query = txn_query.filter(
@@ -148,10 +157,11 @@ def get_monthly_harvest_chart(
 @router.get("/charts/top-vendos", response_model=List[TopEntityItem])
 def get_top_vendos(
     limit: int = Query(10, ge=5, le=20),
+    municipality: Optional[str] = Query(None, description="Filter by municipality/city"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
-    results = (
+    query = (
         db.query(
             VendoMachine.id,
             VendoMachine.vlan_id,
@@ -161,7 +171,12 @@ def get_top_vendos(
         )
         .join(HarvestTransaction, VendoMachine.id == HarvestTransaction.vendo_id)
         .filter(HarvestTransaction.status == HarvestStatus.APPROVED)
-        .group_by(VendoMachine.id, VendoMachine.vlan_id, VendoMachine.vendo_name)
+    )
+    if municipality:
+        query = query.filter(VendoMachine.city_municipality == municipality)
+
+    results = (
+        query.group_by(VendoMachine.id, VendoMachine.vlan_id, VendoMachine.vendo_name)
         .order_by(desc("total_rev"))
         .limit(limit)
         .all()
@@ -188,10 +203,11 @@ def get_top_partners(
 
 @router.get("/charts/locations", response_model=List[LocationPerformanceItem])
 def get_location_performance(
+    sort_by: str = Query("revenue_desc", description="revenue_desc, revenue_asc, name_asc, name_desc, vendos_desc"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
-    results = (
+    query = (
         db.query(
             VendoMachine.city_municipality,
             func.count(func.distinct(VendoMachine.id)).label("v_count"),
@@ -202,9 +218,20 @@ def get_location_performance(
             HarvestTransaction.status == HarvestStatus.APPROVED
         ))
         .group_by(VendoMachine.city_municipality)
-        .order_by(desc("total_gross"))
-        .all()
     )
+
+    if sort_by == "revenue_asc":
+        query = query.order_by(HarvestTransaction.gross_harvest.asc())
+    elif sort_by == "name_asc":
+        query = query.order_by(VendoMachine.city_municipality.asc())
+    elif sort_by == "name_desc":
+        query = query.order_by(VendoMachine.city_municipality.desc())
+    elif sort_by == "vendos_desc":
+        query = query.order_by(desc("v_count"))
+    else: # revenue_desc
+        query = query.order_by(desc("total_gross"))
+
+    results = query.all()
     
     return [
         LocationPerformanceItem(
@@ -213,6 +240,21 @@ def get_location_performance(
             total_gross=r.total_gross
         ) for r in results
     ]
+
+@router.get("/municipalities", response_model=List[str])
+def get_all_municipalities(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
+):
+    """Return distinct list of municipalities where vendos are deployed."""
+    cities = (
+        db.query(VendoMachine.city_municipality)
+        .filter(VendoMachine.city_municipality.isnot(None))
+        .distinct()
+        .order_by(VendoMachine.city_municipality.asc())
+        .all()
+    )
+    return [c[0] for c in cities if c[0]]
 
 # --- REQUIREMENTS 1 & 2: HARVESTER PERFORMANCE VIEWS ---
 
