@@ -12,7 +12,8 @@ import {
   ExternalLink, 
   CheckCircle2, 
   AlertCircle,
-  X 
+  X,
+  Menu
 } from 'lucide-react';
 
 interface UpdateInfo {
@@ -27,7 +28,12 @@ interface UpdateInfo {
   checked_at: string;
 }
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onToggleMobileMenu?: () => void;
+  isMobileMenuOpen?: boolean;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenuOpen }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { settings } = useSettings();
@@ -59,14 +65,14 @@ export const Navbar: React.FC = () => {
     switch (role) {
       case 'ADMIN':
         return (
-          <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs px-2.5 py-0.5 rounded-full font-medium">
-            Administrator
+          <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+            Admin
           </span>
         );
       case 'STAFF_ENCODER':
         return (
-          <span className="bg-blue-500/20 text-blue-400 border border-blue-500/40 text-xs px-2.5 py-0.5 rounded-full font-medium">
-            Staff Encoder
+          <span className="bg-blue-500/20 text-blue-400 border border-blue-500/40 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+            Encoder
           </span>
         );
       default:
@@ -76,17 +82,31 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="bg-slate-900 dark:bg-black text-white h-16 border-b border-slate-800 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 shadow-md transition-colors duration-150">
-        {/* Brand & Logo */}
-        <div className="flex items-center space-x-3">
-          <div className="relative group">
+      <header className="bg-slate-900 dark:bg-black text-white h-16 border-b border-slate-800 sticky top-0 z-30 flex items-center justify-between px-3 sm:px-6 shadow-md transition-colors duration-150">
+        {/* Left: Mobile Hamburger Toggle + Brand & Logo */}
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+          {/* Mobile Menu Hamburger Button */}
+          {user && (
+            <button
+              onClick={onToggleMobileMenu}
+              className="lg:hidden p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+              aria-label="Toggle navigation menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <Menu className="w-5 h-5 text-emerald-400" />
+              )}
+            </button>
+          )}
+
+          <div className="relative group shrink-0">
             <img 
               src={settings.logo_url || "/logo.jpg"} 
               alt="Logo" 
               key={settings.logo_url}
-              className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shadow-sm shadow-emerald-500/30"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-emerald-500 shadow-sm shadow-emerald-500/30"
               onError={(e) => {
-                // Fallback to default /logo.jpg if custom fails
                 const target = e.target as HTMLImageElement;
                 if (!target.src.endsWith('/logo.jpg')) {
                   target.src = '/logo.jpg';
@@ -94,21 +114,23 @@ export const Navbar: React.FC = () => {
               }}
             />
           </div>
-          <div>
+          <div className="min-w-0 truncate">
             <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-lg tracking-wider text-white">{settings.company_name}</span>
+              <span className="font-extrabold text-sm sm:text-lg tracking-wide sm:tracking-wider text-white truncate">
+                {settings.company_name}
+              </span>
             </div>
-            <p className="text-[10px] text-slate-400 hidden sm:block">{settings.company_tagline}</p>
+            <p className="text-[10px] text-slate-400 hidden sm:block truncate">{settings.company_tagline}</p>
           </div>
         </div>
 
         {/* Right side controls */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
+        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
           {/* GitHub Update Checker Button */}
           <button
             onClick={() => checkUpdates(true)}
             title="Check GitHub for Updates"
-            className="relative flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition"
+            className="relative flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition cursor-pointer"
           >
             <GitBranch className={`w-3.5 h-3.5 text-emerald-400 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
             <span className="hidden md:inline">GitHub Updates</span>
@@ -124,7 +146,7 @@ export const Navbar: React.FC = () => {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
+            className="p-1.5 sm:p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition cursor-pointer"
           >
             {theme === 'dark' ? (
               <Sun className="w-4 h-4 text-amber-400" />
@@ -135,12 +157,12 @@ export const Navbar: React.FC = () => {
 
           {/* User Info */}
           {user && (
-            <div className="flex items-center space-x-2 bg-slate-800/80 py-1.5 px-3 rounded-lg border border-slate-700/60">
-              <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+            <div className="flex items-center space-x-2 bg-slate-800/80 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg border border-slate-700/60">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
                 {user.full_name?.charAt(0) || 'U'}
               </div>
               <div className="hidden sm:block text-left">
-                <div className="text-xs font-semibold text-slate-200">{user.full_name}</div>
+                <div className="text-xs font-semibold text-slate-200 truncate max-w-[100px]">{user.full_name}</div>
                 <div className="text-[10px] text-slate-400">{user.username}</div>
               </div>
               <div className="hidden lg:block ml-1">
@@ -153,92 +175,102 @@ export const Navbar: React.FC = () => {
           <button
             onClick={logout}
             title="Sign Out"
-            className="flex items-center text-slate-400 hover:text-rose-400 hover:bg-slate-800 p-2 rounded-lg transition"
+            className="flex items-center text-slate-400 hover:text-rose-400 hover:bg-slate-800 p-1.5 sm:p-2 rounded-lg transition cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* GitHub Update Modal */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 text-white rounded-xl max-w-md w-full shadow-2xl p-6 relative animate-in fade-in zoom-in-95 duration-150">
+      {/* GitHub Update Checker Modal */}
+      {showUpdateModal && updateInfo && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
             <button
               onClick={() => setShowUpdateModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
-                <GitBranch className="w-6 h-6" />
+            <div className="flex items-center space-x-3 border-b border-slate-800 pb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <GitBranch className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">GitHub System Updates</h3>
-                <p className="text-xs text-slate-400">VendoRevenue Repository</p>
+                <h3 className="font-bold text-base text-white">System Update & Release Status</h3>
+                <p className="text-xs text-slate-400 font-mono">Repo: chavxxx/VendoRevenue</p>
               </div>
             </div>
 
-            <div className="bg-slate-950/80 rounded-lg p-3.5 border border-slate-800 mb-4 space-y-2 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/80">
-                <span className="text-slate-400">Current Version:</span>
-                <span className="font-mono font-bold text-emerald-400">{updateInfo?.current_version || 'v2.1.0'}</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/80">
-                <span className="text-slate-400">Installed Commit:</span>
-                <span className="font-mono text-slate-300">{updateInfo?.current_commit || 'HEAD'}</span>
-              </div>
-              <div className="flex justify-between items-center py-1 border-b border-slate-800/80">
-                <span className="text-slate-400">Latest Remote Commit:</span>
-                <span className="font-mono text-slate-300">{updateInfo?.latest_commit || 'Checked'}</span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-slate-400">Last Checked:</span>
-                <span className="text-slate-400">{updateInfo?.checked_at || 'Just now'}</span>
-              </div>
-            </div>
-
-            {updateInfo?.has_update ? (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3.5 mb-4 text-xs text-amber-300 flex items-start space-x-2.5">
-                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-amber-200">New Update Available on GitHub!</div>
-                  <div className="mt-1 text-slate-300">{updateInfo.latest_message}</div>
-                  <div className="mt-2 text-[11px] text-amber-400/90 font-mono bg-black/40 p-2 rounded border border-amber-500/20">
-                    To apply: git pull origin main
+                  <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Installed Version</span>
+                  <span className="font-bold text-sm text-white font-mono">{updateInfo.current_version} ({updateInfo.current_commit})</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 uppercase tracking-wider block text-right">Latest Remote</span>
+                  <span className="font-bold text-sm text-emerald-400 font-mono text-right block">
+                    {updateInfo.latest_commit ? updateInfo.latest_commit : 'Verified'}
+                  </span>
+                </div>
+              </div>
+
+              {updateInfo.has_update ? (
+                <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-300 text-xs space-y-2">
+                  <div className="flex items-center space-x-2 font-bold">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>New updates are available on GitHub!</span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                    Commit: <span className="font-mono">{updateInfo.latest_message}</span>
+                  </p>
+                  <p className="text-[10px] text-amber-400 font-mono">
+                    Author: {updateInfo.latest_author} • {updateInfo.latest_date}
+                  </p>
+                  <div className="pt-2">
+                    <span className="text-[11px] block font-semibold text-white">To update your server, run via SSH:</span>
+                    <code className="block bg-black/60 p-2 rounded-lg text-emerald-400 font-mono text-[11px] mt-1 select-all">
+                      sudo ./scripts/update.sh
+                    </code>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3.5 mb-4 text-xs text-emerald-300 flex items-center space-x-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <div>
-                  <div className="font-bold text-emerald-200">System is Up to Date</div>
-                  <div className="text-slate-400 text-[11px] mt-0.5">Running latest release synchronized with GitHub repository.</div>
+              ) : (
+                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/50 text-emerald-300 text-xs space-y-1">
+                  <div className="flex items-center space-x-2 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>System is up to date!</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Running latest commit: <span className="font-mono text-emerald-400">{updateInfo.latest_message}</span>
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    Checked on {updateInfo.checked_at}
+                  </p>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            <div className="flex items-center space-x-3 pt-2">
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+              <a
+                href={updateInfo.repo_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center space-x-1.5 text-slate-400 hover:text-white"
+              >
+                <span>View GitHub Repository</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
               <button
                 onClick={() => checkUpdates(true)}
                 disabled={isCheckingUpdate}
-                className="flex-1 flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2 px-3 rounded-lg border border-slate-700 transition"
+                className="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-bold"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
                 <span>Check Again</span>
               </button>
-              <a
-                href={updateInfo?.repo_url || "https://github.com/chavxxx/VendoRevenue"}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-3 rounded-lg transition"
-              >
-                <span>View Repo</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
             </div>
           </div>
         </div>

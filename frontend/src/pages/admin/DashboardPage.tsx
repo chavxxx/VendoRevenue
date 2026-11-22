@@ -150,113 +150,115 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 transition">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-navy-900 tracking-tight">Executive Dashboard & Income Monitoring</h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-navy-900 dark:text-white tracking-tight">Executive Dashboard & Income Monitoring</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-0.5">
             Fleet monitoring, gross collections, and field harvester performance tracking.
           </p>
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex bg-gray-100 p-1.5 rounded-xl border border-gray-200 self-stretch md:self-auto">
+        <div className="flex overflow-x-auto w-full md:w-auto bg-gray-100 dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700/80 custom-scrollbar">
           <button
             onClick={() => setActiveTab('fleet')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+            className={`px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'fleet'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:text-navy-900'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-gray-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-3.5 h-3.5 shrink-0" />
             <span>Fleet Overview</span>
           </button>
           <button
             onClick={() => setActiveTab('all-harvesters')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+            className={`px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'all-harvesters'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:text-navy-900'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-gray-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white'
             }`}
           >
-            <Users className="w-3.5 h-3.5" />
+            <Users className="w-3.5 h-3.5 shrink-0" />
             <span>All Harvesters</span>
           </button>
           <button
             onClick={() => setActiveTab('per-harvester')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+            className={`px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'per-harvester'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:text-navy-900'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-gray-600 dark:text-slate-300 hover:text-navy-900 dark:hover:text-white'
             }`}
           >
-            <UserCheck className="w-3.5 h-3.5" />
+            <UserCheck className="w-3.5 h-3.5 shrink-0" />
             <span>Per Harvester</span>
           </button>
         </div>
       </div>
 
       {/* Date Filter & Control Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs transition">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-1.5 font-bold text-gray-700 mr-2">
-            <Calendar className="w-4 h-4 text-blue-600" />
+          <div className="flex items-center space-x-1.5 font-bold text-gray-700 dark:text-slate-300 mr-1 sm:mr-2">
+            <Calendar className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>Period:</span>
           </div>
 
-          <button
-            onClick={() => setPeriod('today')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              period === 'today' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Daily (Today)
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => setPeriod('today')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                period === 'today' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Daily (Today)
+            </button>
 
-          <button
-            onClick={() => setPeriod('this_week')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              period === 'this_week' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Weekly (This Week)
-          </button>
+            <button
+              onClick={() => setPeriod('this_week')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                period === 'this_week' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Weekly (This Week)
+            </button>
 
-          <button
-            onClick={() => setPeriod('this_month')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              period === 'this_month' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Monthly (This Month)
-          </button>
+            <button
+              onClick={() => setPeriod('this_month')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                period === 'this_month' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Monthly (This Month)
+            </button>
 
-          <button
-            onClick={() => setPeriod('last_month')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              period === 'last_month' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Last Month
-          </button>
+            <button
+              onClick={() => setPeriod('last_month')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                period === 'last_month' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Last Month
+            </button>
 
-          <button
-            onClick={() => setPeriod('custom')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              period === 'custom' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Custom Range
-          </button>
+            <button
+              onClick={() => setPeriod('custom')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                period === 'custom' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Custom Range
+            </button>
+          </div>
 
           {/* Harvester Dropdown for 'per-harvester' tab */}
           {activeTab === 'per-harvester' && (
-            <div className="flex items-center space-x-1.5 ml-3 pl-3 border-l border-gray-200">
-              <span className="font-bold text-gray-700">Harvester:</span>
+            <div className="flex items-center space-x-1.5 w-full sm:w-auto mt-2 sm:mt-0 sm:ml-2 sm:pl-3 sm:border-l border-gray-200 dark:border-slate-800">
+              <span className="font-bold text-gray-700 dark:text-slate-300">Harvester:</span>
               <select
                 value={selectedStaffId || ''}
                 onChange={(e) => setSelectedStaffId(parseInt(e.target.value))}
-                className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-navy-900 focus:outline-none focus:border-blue-500"
+                className="flex-1 sm:flex-initial bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs font-semibold text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 {staffList.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -269,13 +271,13 @@ export const DashboardPage: React.FC = () => {
 
           {/* Municipality Filter for Fleet Overview */}
           {activeTab === 'fleet' && (
-            <div className="flex items-center space-x-1.5 ml-2 pl-3 border-l border-gray-200 dark:border-slate-800">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-center space-x-1.5 w-full sm:w-auto mt-2 sm:mt-0 sm:ml-2 sm:pl-3 sm:border-l border-gray-200 dark:border-slate-800">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span className="font-bold text-gray-700 dark:text-slate-300">Municipality:</span>
               <select
                 value={selectedMunicipality}
                 onChange={(e) => setSelectedMunicipality(e.target.value)}
-                className="bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs font-semibold text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                className="flex-1 sm:flex-initial bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs font-semibold text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="all">All Municipalities</option>
                 {municipalities.map((m) => (
@@ -286,28 +288,28 @@ export const DashboardPage: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center justify-between sm:justify-end space-x-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 dark:border-slate-800">
           {period === 'custom' && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5">
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs"
+                className="bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-lg px-2 py-1 text-xs"
               />
               <span className="text-gray-400">to</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs"
+                className="bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-lg px-2 py-1 text-xs"
               />
             </div>
           )}
           <button
             onClick={fetchDashboardData}
             title="Refresh Data"
-            className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+            className="p-2 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>

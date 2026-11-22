@@ -16,6 +16,7 @@ import { SettingsPage } from './pages/admin/SettingsPage';
 const AppContent: React.FC = () => {
   const { user, loading, isEncoder, isAdmin } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (user) {
@@ -31,7 +32,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="flex flex-col items-center space-y-3">
-          <div className="w-12 h-12 rounded-full border-4 border-cyber-green border-t-transparent animate-spin"></div>
+          <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
           <span className="text-sm font-semibold tracking-wider text-slate-300">Loading GARTECH VENDO...</span>
         </div>
       </div>
@@ -65,10 +66,18 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors duration-150">
-      <Navbar />
-      <div className="flex flex-1">
-        <Sidebar currentTab={currentTab} onSelectTab={setCurrentTab} />
-        <main className="flex-1 custom-scrollbar overflow-y-auto">
+      <Navbar 
+        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+        isMobileMenuOpen={isMobileMenuOpen} 
+      />
+      <div className="flex flex-1 relative overflow-x-hidden">
+        <Sidebar 
+          currentTab={currentTab} 
+          onSelectTab={setCurrentTab}
+          isOpenMobile={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
+        />
+        <main className="flex-1 w-full min-w-0 custom-scrollbar overflow-y-auto">
           {renderContent()}
         </main>
       </div>
