@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { useSettings } from '../../context/SettingsContext';
 import { 
   DashboardSummary, 
   ChartDataPoint, 
@@ -31,6 +32,8 @@ import {
 } from 'recharts';
 
 export const DashboardPage: React.FC = () => {
+  const { settings, formatCurrency } = useSettings();
+  
   // Active sub-tab: 'fleet' (Fleet Overview), 'all-harvesters' (Requirement 2), 'per-harvester' (Requirement 1)
   const [activeTab, setActiveTab] = useState<'fleet' | 'all-harvesters' | 'per-harvester'>('fleet');
   
@@ -44,7 +47,6 @@ export const DashboardPage: React.FC = () => {
   const [dailyChart, setDailyChart] = useState<ChartDataPoint[]>([]);
   const [monthlyChart, setMonthlyChart] = useState<ChartDataPoint[]>([]);
   const [topVendos, setTopVendos] = useState<TopEntityItem[]>([]);
-  const [topPartners, setTopPartners] = useState<TopEntityItem[]>([]);
   const [locations, setLocations] = useState<LocationPerformanceItem[]>([]);
   
   // Harvester Performance states
@@ -62,7 +64,6 @@ export const DashboardPage: React.FC = () => {
         const staff = await api.getStaff({ limit: 100 });
         setStaffList(staff);
         if (staff.length > 0 && selectedStaffId === null) {
-          // Default to first field harvester
           const harvester = staff.find((s: Staff) => s.role_type === 'FIELD_HARVESTER') || staff[0];
           setSelectedStaffId(harvester.id);
         }
@@ -83,19 +84,17 @@ export const DashboardPage: React.FC = () => {
 
     try {
       if (activeTab === 'fleet') {
-        const [sumRes, dailyRes, monthlyRes, vendosRes, partnersRes, locsRes] = await Promise.all([
+        const [sumRes, dailyRes, monthlyRes, vendosRes, locsRes] = await Promise.all([
           api.getDashboardSummary(filterParams),
           api.getDailyChart(14),
           api.getMonthlyChart(6),
           api.getTopVendos(8),
-          api.getTopPartners(8),
           api.getLocationPerformance()
         ]);
         setSummary(sumRes);
         setDailyChart(dailyRes);
         setMonthlyChart(monthlyRes);
         setTopVendos(vendosRes);
-        setTopPartners(partnersRes);
         setLocations(locsRes);
       } else if (activeTab === 'all-harvesters') {
         const harvestersRes = await api.getHarvestersPerformance(filterParams);
@@ -136,7 +135,7 @@ export const DashboardPage: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-navy-900 tracking-tight">Executive Dashboard & Income Monitoring</h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-            Fleet monitoring, gross collections, partner splits, and field harvester performance tracking.
+            Fleet monitoring, gross collections, and field harvester performance tracking.
           </p>
         </div>
 
@@ -284,63 +283,63 @@ export const DashboardPage: React.FC = () => {
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Gross Harvest */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Gross Coin Harvest</span>
-                <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Gross Coin Harvest</span>
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
                   <Coins className="w-5 h-5" />
                 </div>
               </div>
-              <div className="text-2xl font-bold text-navy-900 mt-2">
-                {formatPeso(summary?.total_gross_harvest)}
+              <div className="text-2xl font-black text-navy-900 dark:text-white mt-2">
+                {formatCurrency(summary?.total_gross_harvest)}
               </div>
-              <div className="text-xs text-gray-400 mt-1">
-                {summary?.active_vendos || 0} active vendo machines
+              <div className="text-xs text-gray-400 dark:text-slate-500 mt-1">
+                Total coins collected
               </div>
             </div>
 
-            {/* GARTECH Net Revenue (70%) */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
+            {/* GARTECH Net Revenue */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">GARTECH Net Share (70%)</span>
-                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">GARTECH Net Share ({settings.gartech_net_percentage || 95}%)</span>
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
-              <div className="text-2xl font-bold text-emerald-700 mt-2">
-                {formatPeso(summary?.total_gartech_net)}
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
+                {formatCurrency(summary?.total_gartech_net)}
               </div>
-              <div className="text-xs text-emerald-600 mt-1">Retained operating revenue</div>
+              <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">Retained operating revenue</div>
             </div>
 
-            {/* Partner Shares (25%) */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
+            {/* Staff Incentives */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-purple-600 uppercase tracking-wider">Partner Shares (25%)</span>
-                <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
-                  <Users className="w-5 h-5" />
-                </div>
-              </div>
-              <div className="text-2xl font-bold text-navy-900 mt-2">
-                {formatPeso(summary?.total_partner_shares)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                For {summary?.total_partners || 0} location partners
-              </div>
-            </div>
-
-            {/* Staff Incentives (5%) */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Harvester Incentives (5%)</span>
-                <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Harvester Incentives ({settings.staff_incentive_percentage || 5}%)</span>
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
                   <Award className="w-5 h-5" />
                 </div>
               </div>
-              <div className="text-2xl font-bold text-navy-900 mt-2">
-                {formatPeso(summary?.total_staff_incentives)}
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-2">
+                {formatCurrency(summary?.total_staff_incentives)}
               </div>
-              <div className="text-xs text-gray-400 mt-1">Field harvester commissions</div>
+              <div className="text-xs text-gray-400 dark:text-slate-500 mt-1">Field harvester commissions</div>
+            </div>
+
+            {/* Fleet Status Card */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Active Fleet</span>
+                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
+                  <Wifi className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-navy-900 dark:text-white mt-2">
+                {summary?.active_vendos || 0} / {summary?.total_vendos || 0}
+              </div>
+              <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                Operational vendo machines
+              </div>
             </div>
           </div>
 
@@ -403,18 +402,18 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Top Performers Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Top Performers Grid (Vendos & Locations) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Vendos */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h2 className="text-base font-bold text-navy-900 mb-1 flex items-center">
-                <Wifi className="w-4 h-4 text-blue-600 mr-2" />
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
+              <h2 className="text-base font-bold text-navy-900 dark:text-white mb-1 flex items-center">
+                <Wifi className="w-4 h-4 text-emerald-500 mr-2" />
                 Top Earning Vendo Machines
               </h2>
-              <p className="text-xs text-gray-400 mb-4">Ranked by total coin collections</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 mb-4">Ranked by total coin collections</p>
               <div className="space-y-3">
                 {topVendos.map((v, i) => (
-                  <div key={v.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+                  <div key={v.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors">
                     <div className="flex items-center space-x-3">
                       <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                         i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-500'
@@ -422,56 +421,31 @@ export const DashboardPage: React.FC = () => {
                         {i + 1}
                       </span>
                       <div>
-                        <div className="text-xs font-bold text-navy-900">{v.name}</div>
-                        <div className="text-[10px] text-gray-400">{v.subtitle}</div>
+                        <div className="text-xs font-bold text-navy-900 dark:text-white">{v.name}</div>
+                        <div className="text-[10px] text-gray-400 dark:text-slate-500">{v.subtitle}</div>
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-emerald-600">{formatPeso(v.total_revenue)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Partners */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h2 className="text-base font-bold text-navy-900 mb-1 flex items-center">
-                <Users className="w-4 h-4 text-purple-600 mr-2" />
-                Top Partners by Share
-              </h2>
-              <p className="text-xs text-gray-400 mb-4">Ranked by earned 25% revenue shares</p>
-              <div className="space-y-3">
-                {topPartners.map((p, i) => (
-                  <div key={p.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs">
-                        {p.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-navy-900">{p.name}</div>
-                        <div className="text-[10px] text-gray-400">{p.subtitle}</div>
-                      </div>
-                    </div>
-                    <div className="text-xs font-bold text-purple-700">{formatPeso(p.total_revenue)}</div>
+                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(v.total_revenue)}</div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Location Performance */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h2 className="text-base font-bold text-navy-900 mb-1 flex items-center">
-                <MapPin className="w-4 h-4 text-emerald-600 mr-2" />
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
+              <h2 className="text-base font-bold text-navy-900 dark:text-white mb-1 flex items-center">
+                <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mr-2" />
                 Performance by Location
               </h2>
-              <p className="text-xs text-gray-400 mb-4">Geographic distribution in Bukidnon</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 mb-4">Geographic distribution and collections</p>
               <div className="space-y-3">
                 {locations.map((loc) => (
-                  <div key={loc.location} className="p-2.5 rounded-xl bg-gray-50 flex items-center justify-between">
+                  <div key={loc.location} className="p-2.5 rounded-xl bg-gray-50 dark:bg-slate-950 border border-gray-100 dark:border-slate-800/50 flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-bold text-navy-900">{loc.location}</div>
-                      <div className="text-[10px] text-gray-500">{loc.vendo_count} Machines Deployed</div>
+                      <div className="text-xs font-bold text-navy-900 dark:text-white">{loc.location}</div>
+                      <div className="text-[10px] text-gray-500 dark:text-slate-400">{loc.vendo_count} Machines Deployed</div>
                     </div>
-                    <div className="text-xs font-bold text-navy-900">{formatPeso(loc.total_gross)}</div>
+                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(loc.total_gross)}</div>
                   </div>
                 ))}
               </div>
@@ -688,11 +662,9 @@ export const DashboardPage: React.FC = () => {
                     <th className="py-3 px-4">Date</th>
                     <th className="py-3 px-4">VLAN ID</th>
                     <th className="py-3 px-4">Vendo Name</th>
-                    <th className="py-3 px-4">Partner</th>
                     <th className="py-3 px-4 text-right">Gross Harvest</th>
-                    <th className="py-3 px-4 text-right">Partner (25%)</th>
-                    <th className="py-3 px-4 text-right">Harvester (5%)</th>
-                    <th className="py-3 px-4 text-right">GARTECH (70%)</th>
+                    <th className="py-3 px-4 text-right">Harvester ({settings.staff_incentive_percentage}%)</th>
+                    <th className="py-3 px-4 text-right">{settings.company_name} Net ({settings.gartech_net_percentage}%)</th>
                     <th className="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
@@ -703,11 +675,9 @@ export const DashboardPage: React.FC = () => {
                       <td className="py-3 px-4 text-gray-600">{h.harvest_date}</td>
                       <td className="py-3 px-4 font-bold text-navy-900">VLAN {h.vlan_id}</td>
                       <td className="py-3 px-4 font-semibold text-navy-900">{h.vendo_name}</td>
-                      <td className="py-3 px-4 text-purple-700">{h.partner_name}</td>
-                      <td className="py-3 px-4 text-right font-bold text-navy-900">{formatPeso(h.gross_harvest)}</td>
-                      <td className="py-3 px-4 text-right text-purple-700 font-semibold">{formatPeso(h.partner_share)}</td>
-                      <td className="py-3 px-4 text-right text-amber-600 font-bold">{formatPeso(h.staff_incentive)}</td>
-                      <td className="py-3 px-4 text-right text-emerald-700 font-semibold">{formatPeso(h.gartech_net)}</td>
+                      <td className="py-3 px-4 text-right font-bold text-navy-900">{formatCurrency(h.gross_harvest)}</td>
+                      <td className="py-3 px-4 text-right text-amber-600 font-bold">{formatCurrency(h.staff_incentive)}</td>
+                      <td className="py-3 px-4 text-right text-emerald-700 font-semibold">{formatCurrency(h.gartech_net)}</td>
                       <td className="py-3 px-4 text-center">
                         <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
                           {h.status}
@@ -717,7 +687,7 @@ export const DashboardPage: React.FC = () => {
                   ))}
                   {harvesterDetail.harvests.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-gray-400">
+                      <td colSpan={8} className="py-8 text-center text-gray-400">
                         No harvest collections recorded for this harvester in the selected period.
                       </td>
                     </tr>

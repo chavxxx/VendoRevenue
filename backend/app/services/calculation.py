@@ -12,7 +12,7 @@ def to_decimal(val: Any) -> Decimal:
 
 def compute_revenue_distribution(
     gross_harvest: Any,
-    partner_percentage: Any = Decimal("25.00"),
+    partner_percentage: Any = Decimal("0.00"),
     staff_percentage: Any = None,
     gartech_percentage: Any = None,
     staff_incentive_percentage: Any = None,
@@ -23,7 +23,7 @@ def compute_revenue_distribution(
     
     Formula:
       - GROSS HARVEST: Total coins collected
-      - PARTNER SHARE: GROSS HARVEST * (partner_percentage / 100)
+      - PARTNER SHARE: GROSS HARVEST * (partner_percentage / 100) (default 0.00%)
       - STAFF INCENTIVE: GROSS HARVEST * (staff_percentage / 100)
       - GARTECH NET: GROSS HARVEST - PARTNER SHARE - STAFF INCENTIVE
       
@@ -36,8 +36,13 @@ def compute_revenue_distribution(
     s_val = staff_percentage if staff_percentage is not None else (staff_incentive_percentage if staff_incentive_percentage is not None else Decimal("5.00"))
     s_pct = to_decimal(s_val)
     
-    g_val = gartech_percentage if gartech_percentage is not None else (gartech_net_percentage if gartech_net_percentage is not None else Decimal("70.00"))
-    g_pct = to_decimal(g_val)
+    # If gartech percentage is not given, default to 100.00 - p_pct - s_pct
+    if gartech_percentage is not None:
+        g_pct = to_decimal(gartech_percentage)
+    elif gartech_net_percentage is not None:
+        g_pct = to_decimal(gartech_net_percentage)
+    else:
+        g_pct = to_decimal(ONE_HUNDRED - p_pct - s_pct)
 
     if gross < Decimal("0.00"):
         raise ValueError("Gross harvest cannot be negative.")
@@ -48,6 +53,17 @@ def compute_revenue_distribution(
 
     partner_share = (gross * p_pct / ONE_HUNDRED).quantize(CENT, rounding=ROUND_HALF_UP)
     staff_incentive = (gross * s_pct / ONE_HUNDRED).quantize(CENT, rounding=ROUND_HALF_UP)
+    gartech_net = gross - partner_share - staff_incentive
+
+    return {
+        "gross_harvest": gross,
+        "partner_percentage": p_pct,
+        "partner_share": partner_share,
+        "staff_percentage": s_pct,
+        "staff_incentive": staff_incentive,
+        "gartech_percentage": g_pct,
+        "gartech_net": gartech_net
+    }
     
     # GARTECH net is balancing remainder so sum is strictly conserved
     gartech_net = (gross - partner_share - staff_incentive).quantize(CENT, rounding=ROUND_HALF_UP)

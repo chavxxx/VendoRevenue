@@ -4,7 +4,23 @@ export type VendoStatus = 'ACTIVE' | 'INACTIVE' | 'UNDER_MAINTENANCE' | 'REMOVED
 
 export type HarvestStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'VOIDED';
 
-export type ReportScope = 'all' | 'individual_harvester' | 'individual_partner' | 'group_location';
+export type ReportScope = 'all' | 'individual_harvester' | 'group_location';
+
+export interface SystemSetting {
+  id: number;
+  company_name: string;
+  company_tagline: string;
+  contact_phone?: string;
+  contact_email?: string;
+  company_address?: string;
+  default_city: string;
+  default_province: string;
+  currency_symbol: string;
+  logo_url: string;
+  staff_incentive_percentage: number;
+  gartech_net_percentage: number;
+  updated_at?: string;
+}
 
 export interface User {
   id: number;
@@ -15,27 +31,6 @@ export interface User {
   role: UserRole;
   is_active: boolean;
   staff_id?: number;
-  created_at: string;
-}
-
-export interface Partner {
-  id: number;
-  partner_code: string;
-  name: string;
-  contact_person?: string;
-  phone?: string;
-  email?: string;
-  address: string;
-  city: string;
-  province: string;
-  default_share_percentage: number;
-  bank_name?: string;
-  bank_account_name?: string;
-  bank_account_number?: string;
-  gcash_number?: string;
-  is_active: boolean;
-  vendo_count?: number;
-  total_earnings?: number;
   created_at: string;
 }
 
@@ -57,7 +52,7 @@ export interface VendoMachine {
   id: number;
   vlan_id: number;
   vendo_name: string;
-  partner_id: number;
+  partner_id?: number;
   partner_name?: string;
   complete_address: string;
   city_municipality: string;
@@ -82,7 +77,7 @@ export interface HarvestTransaction {
   vendo_id: number;
   vlan_id: number;
   vendo_name?: string;
-  partner_id: number;
+  partner_id?: number;
   partner_name?: string;
   harvester_id?: number;
   harvester_name?: string;
@@ -91,8 +86,8 @@ export interface HarvestTransaction {
   harvest_date: string;
   harvest_period: string;
   gross_harvest: number;
-  partner_percentage: number;
-  partner_share: number;
+  partner_percentage?: number;
+  partner_share?: number;
   staff_percentage: number;
   staff_incentive: number;
   gartech_percentage: number;
@@ -111,9 +106,9 @@ export interface DashboardSummary {
   total_vendos: number;
   active_vendos: number;
   inactive_vendos: number;
-  total_partners: number;
+  total_partners?: number;
   total_gross_harvest: number;
-  total_partner_shares: number;
+  total_partner_shares?: number;
   total_staff_incentives: number;
   total_gartech_net: number;
 }

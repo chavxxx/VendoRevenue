@@ -9,9 +9,9 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.dependencies import get_current_user, require_roles
 from app.models import (
-    User, UserRole, VendoMachine, Partner, Staff, 
+    User, UserRole, VendoMachine, Staff, 
     HarvestTransaction, HarvestStatus,
-    RevenueShareConfiguration
+    RevenueShareConfiguration, SystemSetting
 )
 from app.schemas import (
     HarvestCreate, HarvestCalculationPreview, 
@@ -24,13 +24,16 @@ from app.services.audit_service import log_action
 router = APIRouter()
 
 def get_active_revenue_config(db: Session):
+    sys_setting = db.query(SystemSetting).first()
+    if sys_setting:
+        return Decimal("0.00"), sys_setting.staff_incentive_percentage, sys_setting.gartech_net_percentage
     config = db.query(RevenueShareConfiguration).filter(RevenueShareConfiguration.is_active == True).first()
     if config:
-        return config.partner_percentage, config.staff_incentive_percentage, config.gartech_net_percentage
+        return Decimal("0.00"), config.staff_incentive_percentage, config.gartech_net_percentage
     return (
-        Decimal(str(settings.DEFAULT_PARTNER_PERCENTAGE)),
+        Decimal("0.00"),
         Decimal(str(settings.DEFAULT_STAFF_PERCENTAGE)),
-        Decimal(str(settings.DEFAULT_GARTECH_PERCENTAGE))
+        Decimal("95.00")
     )
 
 def generate_transaction_ref(db: Session, harvest_date: date) -> str:
@@ -58,8 +61,8 @@ def serialize_harvest(t: HarvestTransaction) -> HarvestResponse:
         vendo_id=t.vendo_id,
         vlan_id=t.vlan_id,
         vendo_name=t.vendo.vendo_name if t.vendo else None,
-        partner_id=t.partner_id,
-        partner_name=t.partner.name if t.partner else None,
+        partner_id=None,
+        partner_name=None,
         harvester_id=t.harvester_id,
         harvester_name=t.harvester.full_name if t.harvester else None,
         encoded_by_user_id=t.encoded_by_user_id,
@@ -67,8 +70,8 @@ def serialize_harvest(t: HarvestTransaction) -> HarvestResponse:
         harvest_date=t.harvest_date,
         harvest_period=t.harvest_period,
         gross_harvest=t.gross_harvest,
-        partner_percentage=t.partner_percentage,
-        partner_share=t.partner_share,
+        partner_percentage=Decimal("0.00"),
+        partner_share=Decimal("0.00"),
         staff_percentage=t.staff_percentage,
         staff_incentive=t.staff_incentive,
         gartech_percentage=t.gartech_percentage,
@@ -90,13 +93,15 @@ def preview_harvest_computation(
     current_user: User = Depends(get_current_user)
 ):
     gross = payload.get("gross_harvest", 0)
-    p_pct, s_pct, g_pct = get_active_revenue_config(db)
+    _, s_pct, g_pct = get_active_revenue_config(db)
+    p_pct = Decimal("0.00")
     
-    if "partner_percentage" in payload and payload["partner_percentage"] is not None:
-        p_pct = to_decimal(payload["partner_percentage"])
     if "staff_percentage" in payload and payload["staff_percentage"] is not None:
         s_pct = to_decimal(payload["staff_percentage"])
-    g_pct = Decimal("100.00") - p_pct - s_pct
+        g_pct = Decimal("100.00") - s_pct
+
+    distribution = compute_revenue_distribution(gross, p_pct, s_pct, g_pct)
+    return HarvestCalculationPreview(**distribution)
 
     distribution = compute_revenue_distribution(gross, p_pct, s_pct, g_pct)
     return HarvestCalculationPreview(**distribution)
@@ -165,11 +170,9 @@ def encode_harvest(
         raise HTTPException(status_code=400, detail=f"Selected harvester (ID {payload.harvester_id}) does not exist")
     harvester_id = harvester.id
 
-    # Server-side revenue calculation (strict decimal exactness)
-    p_pct, s_pct, g_pct = get_active_revenue_config(db)
-    if vendo.partner and vendo.partner.default_share_percentage:
-        p_pct = to_decimal(vendo.partner.default_share_percentage)
-        g_pct = Decimal("100.00") - p_pct - s_pct
+    # Server-side revenue calculation (strict decimal exactness: 0% partner, 5% staff, 95% gartech)
+    _, s_pct, g_pct = get_active_revenue_config(db)
+    p_pct = Decimal("0.00")
 
     distribution = compute_revenue_distribution(
         gross_harvest=payload.gross_harvest,
@@ -185,14 +188,14 @@ def encode_harvest(
         transaction_ref=transaction_ref,
         vendo_id=vendo.id,
         vlan_id=vendo.vlan_id,
-        partner_id=vendo.partner_id,
+        partner_id=None,
         harvester_id=harvester_id,
         encoded_by_user_id=current_user.id,
         harvest_date=payload.harvest_date,
         harvest_period=harvest_period,
         gross_harvest=distribution["gross_harvest"],
-        partner_percentage=distribution["partner_percentage"],
-        partner_share=distribution["partner_share"],
+        partner_percentage=Decimal("0.00"),
+        partner_share=Decimal("0.00"),
         staff_percentage=distribution["staff_percentage"],
         staff_incentive=distribution["staff_incentive"],
         gartech_percentage=distribution["gartech_percentage"],

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSettings } from '../../context/SettingsContext';
 import { Lock, User, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
+  const { settings } = useSettings();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +35,21 @@ export const LoginPage: React.FC = () => {
         <div className="text-center mb-6">
           <div className="inline-block relative mb-3">
             <img 
-              src="/logo.jpg" 
-              alt="GARTECH Logo" 
+              src={settings.logo_url || "/logo.jpg"} 
+              alt="Logo" 
+              key={settings.logo_url}
               className="w-20 h-20 rounded-full mx-auto object-cover border-2 border-emerald-500 shadow-lg shadow-emerald-500/20"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (!target.src.endsWith('/logo.jpg')) {
+                  target.src = '/logo.jpg';
+                }
+              }}
             />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-wider">GARTECH VENDO</h1>
+          <h1 className="text-2xl font-black text-white tracking-wider">{settings.company_name}</h1>
           <p className="text-xs text-emerald-400 mt-1 uppercase tracking-widest font-bold">
-            Management & Revenue Sharing System
+            {settings.company_tagline}
           </p>
         </div>
 

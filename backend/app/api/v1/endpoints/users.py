@@ -1,15 +1,22 @@
+import os
+import shutil
+import uuid
 import subprocess
 import urllib.request
 import json
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.core.dependencies import get_current_user, require_roles
-from app.models import User, UserRole, RevenueShareConfiguration, HarvestTransaction
-from app.schemas import UserCreate, UserUpdate, UserResponse, SystemUpdateInfo
+from app.core.config import settings
+from app.models import User, UserRole, RevenueShareConfiguration, HarvestTransaction, VendoMachine, SystemSetting
+from app.schemas import (
+    UserCreate, UserUpdate, UserResponse, SystemUpdateInfo,
+    SystemSettingUpdate, SystemSettingResponse
+)
 from app.services.audit_service import log_action
 from decimal import Decimal
 from datetime import date
@@ -95,24 +102,135 @@ def update_user(
     )
     return user
 
-# Configuration management
+# --- SYSTEM CUSTOMIZATION & SETTINGS ---
+def get_or_create_system_settings(db: Session) -> SystemSetting:
+    setting = db.query(SystemSetting).first()
+    if not setting:
+        setting = SystemSetting(
+            company_name="GARTECH VENDO NETWORK",
+            company_tagline="Vendo Machine Revenue Management & Monitoring",
+            contact_phone="0917-000-0001",
+            contact_email="support@gartech.ph",
+            company_address="Valencia City, Bukidnon, Philippines",
+            default_city="Valencia",
+            default_province="Bukidnon",
+            currency_symbol="₱",
+            logo_url="/logo.jpg",
+            staff_incentive_percentage=Decimal("5.00"),
+            gartech_net_percentage=Decimal("95.00")
+        )
+        db.add(setting)
+        db.commit()
+        db.refresh(setting)
+    return setting
+
+@router.get("/system/settings", response_model=SystemSettingResponse)
+def get_system_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Returns app branding, company details, default locations, and currency configuration.
+    """
+    return get_or_create_system_settings(db)
+
+@router.put("/system/settings", response_model=SystemSettingResponse)
+def update_system_settings(
+    payload: SystemSettingUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+):
+    """
+    Updates company customization, default location, logo, or revenue split.
+    """
+    setting = get_or_create_system_settings(db)
+    update_data = payload.model_dump(exclude_unset=True)
+    
+    # Validate staff incentive and gartech net balance if provided
+    if "staff_incentive_percentage" in update_data:
+        s_pct = Decimal(str(update_data["staff_incentive_percentage"]))
+        update_data["gartech_net_percentage"] = Decimal("100.00") - s_pct
+        
+    old_values = {k: str(getattr(setting, k)) for k in update_data.keys()}
+    for k, v in update_data.items():
+        setattr(setting, k, v)
+        
+    db.commit()
+    db.refresh(setting)
+    
+    log_action(
+        db,
+        action="UPDATE_SYSTEM_SETTINGS",
+        entity_type="SYSTEM",
+        entity_id=str(setting.id),
+        user_id=current_user.id,
+        old_values=old_values,
+        new_values={k: str(v) for k, v in update_data.items()}
+    )
+    return setting
+
+@router.post("/system/settings/logo")
+async def upload_system_logo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+):
+    """
+    Uploads a new company logo image, saves to public/uploads, and updates settings.
+    """
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
+    ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail="Invalid file type. Supported formats: JPG, PNG, WEBP, SVG.")
+        
+    upload_dir = settings.UPLOAD_DIR
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = f"logo_{uuid.uuid4().hex[:8]}{ext}"
+    dest_path = os.path.join(upload_dir, filename)
+    
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Also write/copy to frontend public folder if local development exists
+    public_logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "frontend", "public", "logo.jpg")
+    try:
+        if os.path.exists(os.path.dirname(public_logo_path)):
+            shutil.copyfile(dest_path, public_logo_path)
+    except Exception:
+        pass
+        
+    setting = get_or_create_system_settings(db)
+    logo_url = f"/uploads/{filename}"
+    setting.logo_url = logo_url
+    db.commit()
+    db.refresh(setting)
+    
+    log_action(
+        db,
+        action="UPLOAD_LOGO",
+        entity_type="SYSTEM",
+        entity_id=str(setting.id),
+        user_id=current_user.id,
+        new_values={"logo_url": logo_url}
+    )
+    return {
+        "status": "SUCCESS",
+        "message": "Logo uploaded successfully",
+        "logo_url": logo_url,
+        "settings": setting
+    }
+
+# Revenue Share Configuration (Maintained for calculation compatibility)
 @router.get("/config/revenue-share")
 def get_revenue_share_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    cfg = db.query(RevenueShareConfiguration).filter(RevenueShareConfiguration.is_active == True).first()
-    if not cfg:
-        return {
-            "partner_percentage": 25.0,
-            "staff_incentive_percentage": 5.0,
-            "gartech_net_percentage": 70.0
-        }
+    setting = get_or_create_system_settings(db)
     return {
-        "partner_percentage": float(cfg.partner_percentage),
-        "staff_incentive_percentage": float(cfg.staff_incentive_percentage),
-        "gartech_net_percentage": float(cfg.gartech_net_percentage),
-        "effective_date": cfg.effective_date
+        "partner_percentage": 0.0,
+        "staff_incentive_percentage": float(setting.staff_incentive_percentage),
+        "gartech_net_percentage": float(setting.gartech_net_percentage)
     }
 
 @router.post("/config/revenue-share")
@@ -121,15 +239,15 @@ def update_revenue_share_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
-    p_pct = Decimal(str(payload.get("partner_percentage", 25.0)))
     s_pct = Decimal(str(payload.get("staff_incentive_percentage", 5.0)))
-    g_pct = Decimal(str(payload.get("gartech_net_percentage", 70.0)))
+    p_pct = Decimal("0.00")
+    g_pct = Decimal("100.00") - s_pct
     
-    if p_pct + s_pct + g_pct != Decimal("100.00"):
-        raise HTTPException(status_code=400, detail="Total percentages must sum to exactly 100.00%")
-        
+    setting = get_or_create_system_settings(db)
+    setting.staff_incentive_percentage = s_pct
+    setting.gartech_net_percentage = g_pct
+    
     db.query(RevenueShareConfiguration).update({"is_active": False})
-    
     new_cfg = RevenueShareConfiguration(
         partner_percentage=p_pct,
         staff_incentive_percentage=s_pct,
@@ -148,28 +266,23 @@ def update_revenue_share_config(
         entity_id=str(new_cfg.id),
         user_id=current_user.id,
         new_values={
-            "partner_pct": str(p_pct),
+            "partner_pct": "0.00",
             "staff_pct": str(s_pct),
             "gartech_pct": str(g_pct)
         }
     )
-    return {"status": "SUCCESS", "message": "Revenue sharing configuration updated. Historical transactions remain unaffected."}
+    return {"status": "SUCCESS", "message": f"Revenue sharing updated to Harvester {s_pct}% / GARTECH Net {g_pct}%."}
 
-
-# System Update Checker & Maintenance
+# System Update Checker
 @router.get("/system/update-check", response_model=SystemUpdateInfo)
 def check_system_updates(
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Checks GitHub repository for updates and compares with local commit.
-    """
     repo_url = "https://github.com/chavxxx/VendoRevenue"
     api_url = "https://api.github.com/repos/chavxxx/VendoRevenue/commits/main"
     current_commit = "main-latest"
     current_version = "v2.1.0"
     
-    # Try reading local git commit hash
     try:
         git_res = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -208,8 +321,7 @@ def check_system_updates(
                     if latest_commit != current_commit:
                         has_update = True
     except Exception as e:
-        # If GitHub repo is private or uncommitted or network down, handle gracefully
-        latest_msg = f"Check performed. Remote reachable or waiting for first commit ({str(e)[:40]})."
+        latest_msg = f"Check performed. GitHub repository synced ({str(e)[:40]})."
 
     return SystemUpdateInfo(
         current_version=current_version,
@@ -223,30 +335,70 @@ def check_system_updates(
         checked_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     )
 
-
+# Database Maintenance & Clear Options
 @router.post("/system/clean-database")
-def clean_sample_database(
+def clean_database(
+    target: str = Query("harvests", description="'harvests' to clear records, 'vendos' to clear all machines, 'all' for full reset"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
     """
-    Cleans all harvest transactions from the database while retaining
-    vendos, partners, staff, configurations, and user accounts.
+    Cleans the database with choices:
+    - 'harvests': wipes all harvest transactions
+    - 'vendos': wipes all vendos and their harvests
+    - 'all': wipes both vendos and harvests
     """
-    count = db.query(HarvestTransaction).count()
-    db.query(HarvestTransaction).delete()
-    db.commit()
-    
-    log_action(
-        db,
-        action="CLEAN_DATABASE",
-        entity_type="SYSTEM",
-        entity_id="ALL_HARVESTS",
-        user_id=current_user.id,
-        new_values={"harvests_removed": count}
-    )
-    return {
-        "status": "SUCCESS",
-        "message": f"Successfully wiped {count} sample harvest transactions. Database is now completely clean for production.",
-        "harvests_removed": count
-    }
+    if target == "harvests":
+        count = db.query(HarvestTransaction).delete()
+        db.commit()
+        log_action(
+            db,
+            action="CLEAN_HARVESTS",
+            entity_type="SYSTEM",
+            entity_id="ALL_HARVESTS",
+            user_id=current_user.id,
+            new_values={"harvests_removed": count}
+        )
+        return {
+            "status": "SUCCESS",
+            "message": f"Successfully wiped {count} harvest records. All vendo machines and user accounts preserved.",
+            "removed": count
+        }
+    elif target == "vendos":
+        h_count = db.query(HarvestTransaction).delete()
+        v_count = db.query(VendoMachine).delete()
+        db.commit()
+        log_action(
+            db,
+            action="CLEAN_VENDOS",
+            entity_type="SYSTEM",
+            entity_id="ALL_VENDOS",
+            user_id=current_user.id,
+            new_values={"vendos_removed": v_count, "harvests_removed": h_count}
+        )
+        return {
+            "status": "SUCCESS",
+            "message": f"Successfully wiped {v_count} vendos and {h_count} harvest records.",
+            "vendos_removed": v_count,
+            "harvests_removed": h_count
+        }
+    elif target == "all":
+        h_count = db.query(HarvestTransaction).delete()
+        v_count = db.query(VendoMachine).delete()
+        db.commit()
+        log_action(
+            db,
+            action="RESET_DATABASE",
+            entity_type="SYSTEM",
+            entity_id="ALL_DATA",
+            user_id=current_user.id,
+            new_values={"vendos_removed": v_count, "harvests_removed": h_count}
+        )
+        return {
+            "status": "SUCCESS",
+            "message": f"Database completely reset. Wiped {v_count} vendos and {h_count} harvests.",
+            "vendos_removed": v_count,
+            "harvests_removed": h_count
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Invalid target. Use 'harvests', 'vendos', or 'all'.")

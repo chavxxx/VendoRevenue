@@ -9,8 +9,8 @@ from datetime import date, datetime, timezone
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.models import (
-    User, UserRole, VendoMachine, Partner, Staff, 
-    HarvestTransaction, HarvestStatus, VendoStatus
+    User, UserRole, VendoMachine, Staff, 
+    HarvestTransaction, HarvestStatus, VendoStatus, SystemSetting
 )
 from app.schemas import (
     VendoCreate, VendoUpdate, VendoResponse
@@ -36,22 +36,20 @@ def get_vendo_stats(
 
 @router.get("/", response_model=List[VendoResponse])
 def list_vendos(
-    search: Optional[str] = Query(None, description="Search by VLAN, partner name, or address"),
-    partner_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None, description="Search by VLAN, machine name, or address"),
+    partner_id: Optional[int] = Query(None), # backward compatibility (ignored)
     status: Optional[VendoStatus] = Query(None),
     city: Optional[str] = Query(None),
     assigned_harvester_id: Optional[int] = Query(None),
     sort_by: str = Query("vlan_id", description="Field to sort by"),
     sort_order: str = Query("asc", description="asc or desc"),
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(200, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = db.query(VendoMachine).join(Partner, VendoMachine.partner_id == Partner.id)
+    query = db.query(VendoMachine)
     
-    if partner_id:
-        query = query.filter(VendoMachine.partner_id == partner_id)
     if status:
         query = query.filter(VendoMachine.status == status)
     if city:
@@ -66,17 +64,17 @@ def list_vendos(
                 or_(
                     VendoMachine.vlan_id == int(search),
                     VendoMachine.vendo_name.ilike(search_fmt),
-                    Partner.name.ilike(search_fmt),
-                    VendoMachine.complete_address.ilike(search_fmt)
+                    VendoMachine.complete_address.ilike(search_fmt),
+                    VendoMachine.city_municipality.ilike(search_fmt)
                 )
             )
         else:
             query = query.filter(
                 or_(
                     VendoMachine.vendo_name.ilike(search_fmt),
-                    Partner.name.ilike(search_fmt),
                     VendoMachine.complete_address.ilike(search_fmt),
-                    VendoMachine.city_municipality.ilike(search_fmt)
+                    VendoMachine.city_municipality.ilike(search_fmt),
+                    VendoMachine.province.ilike(search_fmt)
                 )
             )
             
@@ -102,8 +100,8 @@ def list_vendos(
                 id=v.id,
                 vlan_id=v.vlan_id,
                 vendo_name=v.vendo_name,
-                partner_id=v.partner_id,
-                partner_name=v.partner.name if v.partner else None,
+                partner_id=None,
+                partner_name=None,
                 complete_address=v.complete_address,
                 city_municipality=v.city_municipality,
                 province=v.province,
@@ -118,7 +116,7 @@ def list_vendos(
                 created_at=v.created_at,
                 last_harvest_date=last_harvest.harvest_date if last_harvest else None,
                 last_gross_harvest=last_harvest.gross_harvest if last_harvest else None,
-                last_partner_share=last_harvest.partner_share if last_harvest else None
+                last_partner_share=Decimal("0.00") if last_harvest else None
             )
         )
     return results
@@ -144,8 +142,8 @@ def get_vendo_by_vlan(
         id=vendo.id,
         vlan_id=vendo.vlan_id,
         vendo_name=vendo.vendo_name,
-        partner_id=vendo.partner_id,
-        partner_name=vendo.partner.name if vendo.partner else None,
+        partner_id=None,
+        partner_name=None,
         complete_address=vendo.complete_address,
         city_municipality=vendo.city_municipality,
         province=vendo.province,
@@ -160,7 +158,7 @@ def get_vendo_by_vlan(
         created_at=vendo.created_at,
         last_harvest_date=last_harvest.harvest_date if last_harvest else None,
         last_gross_harvest=last_harvest.gross_harvest if last_harvest else None,
-        last_partner_share=last_harvest.partner_share if last_harvest else None
+        last_partner_share=Decimal("0.00") if last_harvest else None
     )
 
 @router.post("/", response_model=VendoResponse, status_code=status.HTTP_201_CREATED)
@@ -173,18 +171,27 @@ def create_vendo(
     if existing:
         raise HTTPException(status_code=400, detail=f"VLAN ID {payload.vlan_id} already exists")
         
-    partner = db.query(Partner).filter(Partner.id == payload.partner_id).first()
-    if not partner:
-        raise HTTPException(status_code=400, detail="Specified partner does not exist")
-        
-    vendo = VendoMachine(**payload.model_dump())
+    vendo_data = payload.model_dump()
+    # Ensure partner_id is None
+    vendo_data["partner_id"] = None
+    
+    # If city or province not provided, look up from system settings
+    if not vendo_data.get("city_municipality") or not vendo_data.get("province"):
+        sys_settings = db.query(SystemSetting).first()
+        if sys_settings:
+            if not vendo_data.get("city_municipality"):
+                vendo_data["city_municipality"] = sys_settings.default_city
+            if not vendo_data.get("province"):
+                vendo_data["province"] = sys_settings.default_province
+
+    vendo = VendoMachine(**vendo_data)
     db.add(vendo)
     db.commit()
     db.refresh(vendo)
     
     log_action(
         db,
-        action="CREATE",
+        action="CREATE_VENDO",
         entity_type="VENDO",
         entity_id=str(vendo.vlan_id),
         user_id=current_user.id,
@@ -195,8 +202,8 @@ def create_vendo(
         id=vendo.id,
         vlan_id=vendo.vlan_id,
         vendo_name=vendo.vendo_name,
-        partner_id=vendo.partner_id,
-        partner_name=partner.name,
+        partner_id=None,
+        partner_name=None,
         complete_address=vendo.complete_address,
         city_municipality=vendo.city_municipality,
         province=vendo.province,
@@ -237,7 +244,7 @@ def update_vendo(
     
     log_action(
         db,
-        action="UPDATE",
+        action="UPDATE_VENDO",
         entity_type="VENDO",
         entity_id=str(vendo.vlan_id),
         user_id=current_user.id,
@@ -249,8 +256,8 @@ def update_vendo(
         id=vendo.id,
         vlan_id=vendo.vlan_id,
         vendo_name=vendo.vendo_name,
-        partner_id=vendo.partner_id,
-        partner_name=vendo.partner.name if vendo.partner else None,
+        partner_id=None,
+        partner_name=None,
         complete_address=vendo.complete_address,
         city_municipality=vendo.city_municipality,
         province=vendo.province,
@@ -266,39 +273,63 @@ def update_vendo(
     )
 
 @router.delete("/{vlan_id}")
-def archive_vendo(
+def delete_vendo(
     vlan_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
+    """
+    Permanently deletes a vendo machine and any related harvest records.
+    """
     vendo = db.query(VendoMachine).filter(VendoMachine.vlan_id == vlan_id).first()
     if not vendo:
         raise HTTPException(status_code=404, detail="Vendo not found")
         
-    has_harvests = db.query(HarvestTransaction).filter(HarvestTransaction.vendo_id == vendo.id).first()
-    if has_harvests:
-        vendo.status = VendoStatus.REMOVED
-        db.commit()
-        log_action(
-            db,
-            action="ARCHIVE",
-            entity_type="VENDO",
-            entity_id=str(vlan_id),
-            user_id=current_user.id,
-            new_values={"status": "REMOVED"}
-        )
-        return {"status": "SUCCESS", "message": f"Vendo VLAN {vlan_id} has existing harvest history; marked as REMOVED (archived)"}
-    else:
-        db.delete(vendo)
-        db.commit()
-        log_action(
-            db,
-            action="DELETE",
-            entity_type="VENDO",
-            entity_id=str(vlan_id),
-            user_id=current_user.id
-        )
-        return {"status": "SUCCESS", "message": f"Vendo VLAN {vlan_id} deleted successfully"}
+    # Delete associated harvests to maintain referential integrity
+    harvest_count = db.query(HarvestTransaction).filter(HarvestTransaction.vendo_id == vendo.id).delete()
+    
+    db.delete(vendo)
+    db.commit()
+    
+    log_action(
+        db,
+        action="DELETE_VENDO",
+        entity_type="VENDO",
+        entity_id=str(vlan_id),
+        user_id=current_user.id,
+        new_values={"harvests_cascade_deleted": harvest_count}
+    )
+    return {
+        "status": "SUCCESS", 
+        "message": f"Vendo VLAN {vlan_id} deleted permanently (with {harvest_count} cascade harvests)."
+    }
+
+@router.post("/clear-all")
+def clear_all_vendos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+):
+    """
+    Permanently deletes all vendo machines and all harvest transactions.
+    """
+    h_count = db.query(HarvestTransaction).delete()
+    v_count = db.query(VendoMachine).delete()
+    db.commit()
+    
+    log_action(
+        db,
+        action="CLEAR_ALL_VENDOS",
+        entity_type="DATABASE",
+        entity_id="ALL_VENDOS",
+        user_id=current_user.id,
+        new_values={"vendos_deleted": v_count, "harvests_deleted": h_count}
+    )
+    return {
+        "status": "SUCCESS",
+        "message": f"Cleared all {v_count} vendos and {h_count} harvest records from database.",
+        "vendos_deleted": v_count,
+        "harvests_deleted": h_count
+    }
 
 @router.post("/import/csv")
 async def import_vendos_csv(
@@ -314,6 +345,11 @@ async def import_vendos_csv(
     updated_count = 0
     errors = []
     
+    # Get system default location if needed
+    sys_settings = db.query(SystemSetting).first()
+    default_city = sys_settings.default_city if sys_settings else "Valencia"
+    default_prov = sys_settings.default_province if sys_settings else "Bukidnon"
+    
     for row_idx, row in enumerate(reader, start=2):
         try:
             vlan_id = int(row.get("vlan_id") or row.get("VLAN") or 0)
@@ -322,34 +358,14 @@ async def import_vendos_csv(
                 continue
                 
             vendo_name = row.get("vendo_name") or f"Vendo VLAN {vlan_id}"
-            partner_name = (row.get("partner_name") or "").strip()
-            address = (row.get("address") or row.get("complete_address") or "Valencia, Bukidnon").strip()
-            city = (row.get("city") or "Valencia").strip()
-            province = (row.get("province") or "Bukidnon").strip()
+            address = (row.get("address") or row.get("complete_address") or f"{default_city}, {default_prov}").strip()
+            city = (row.get("city") or default_city).strip()
+            province = (row.get("province") or default_prov).strip()
             status_val = VendoStatus.ACTIVE
             
-            partner = db.query(Partner).filter(Partner.name.ilike(partner_name)).first()
-            if not partner and partner_name:
-                code_count = db.query(Partner).count() + 1
-                partner = Partner(
-                    partner_code=f"PRT-{code_count:03d}",
-                    name=partner_name,
-                    address=address,
-                    city=city,
-                    province=province
-                )
-                db.add(partner)
-                db.flush()
-            elif not partner:
-                partner = db.query(Partner).first()
-                if not partner:
-                    errors.append(f"Row {row_idx}: No partner available to assign")
-                    continue
-                    
             existing = db.query(VendoMachine).filter(VendoMachine.vlan_id == vlan_id).first()
             if existing:
                 existing.vendo_name = vendo_name
-                existing.partner_id = partner.id
                 existing.complete_address = address
                 existing.city_municipality = city
                 existing.province = province
@@ -358,7 +374,7 @@ async def import_vendos_csv(
                 new_vendo = VendoMachine(
                     vlan_id=vlan_id,
                     vendo_name=vendo_name,
-                    partner_id=partner.id,
+                    partner_id=None,
                     complete_address=address,
                     city_municipality=city,
                     province=province,
@@ -383,21 +399,19 @@ def export_vendos_csv(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
-    vendos = db.query(VendoMachine).join(Partner).order_by(VendoMachine.vlan_id.asc()).all()
+    vendos = db.query(VendoMachine).order_by(VendoMachine.vlan_id.asc()).all()
     
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "VLAN ID", "Vendo Name", "Partner Code", "Partner Name", 
-        "Address", "City", "Province", "Status", "Installation Date", "Remarks"
+        "VLAN ID", "Vendo Name", "Address", "City", "Province", 
+        "Status", "Installation Date", "Remarks"
     ])
     
     for v in vendos:
         writer.writerow([
             v.vlan_id,
             v.vendo_name,
-            v.partner.partner_code if v.partner else "",
-            v.partner.name if v.partner else "",
             v.complete_address,
             v.city_municipality,
             v.province,

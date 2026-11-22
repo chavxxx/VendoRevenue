@@ -1,11 +1,11 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { 
   LayoutDashboard, 
   Wifi, 
   PlusCircle, 
   Receipt, 
-  Users, 
   UserCheck, 
   FileText, 
   Settings
@@ -18,6 +18,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => {
   const { isAdmin } = useAuth();
+  const { settings } = useSettings();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Harvesters', icon: LayoutDashboard, show: true },
@@ -25,9 +26,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: 'harvest-encoding', label: 'Encode Harvest', icon: PlusCircle, show: true },
     { id: 'harvests', label: 'Harvest Records', icon: Receipt, show: true },
     { id: 'reports', label: 'Financial Reports', icon: FileText, show: true },
-    { id: 'partners', label: 'Location Partners', icon: Users, show: isAdmin },
     { id: 'staff', label: 'Staff & Harvesters', icon: UserCheck, show: isAdmin },
-    { id: 'settings', label: 'Settings & Audit', icon: Settings, show: isAdmin },
+    { id: 'settings', label: 'Settings & Customization', icon: Settings, show: isAdmin },
   ];
 
   return (
@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
                   isActive
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-semibold'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
@@ -60,8 +60,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
       </div>
 
       <div className="p-4 border-t border-slate-800 text-[11px] text-slate-500">
-        <div className="text-slate-300 font-semibold">GARTECH VENDO v2.1</div>
-        <div>Valencia City, Bukidnon</div>
+        <div className="text-slate-300 font-semibold">{settings.company_name}</div>
+        <div>{settings.default_city}, {settings.default_province}</div>
         <div className="mt-1 text-[10px] text-emerald-400 flex items-center font-medium">
           <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
           Connected to Central Database

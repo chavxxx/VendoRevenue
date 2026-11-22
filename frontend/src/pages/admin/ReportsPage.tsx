@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Partner, Staff, ReportScope } from '../../types';
+import { Staff, ReportScope } from '../../types';
+import { useSettings } from '../../context/SettingsContext';
 import { 
-  FileText, Download, Calendar, Filter, 
-  Printer, Table, CheckCircle2, Clock, Users, UserCheck, MapPin, Layers
+  Download, Table, Printer, Layers, UserCheck, MapPin
 } from 'lucide-react';
 
 export const ReportsPage: React.FC = () => {
+  const { settings, formatCurrency } = useSettings();
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>('monthly');
   const [scope, setScope] = useState<ReportScope>('all');
   
   // Scope-specific filter parameters
   const [selectedHarvesterId, setSelectedHarvesterId] = useState<string>('');
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const [selectedCity, setSelectedCity] = useState<string>('');
 
   // Date filters
@@ -22,25 +22,19 @@ export const ReportsPage: React.FC = () => {
   const [endDate, setEndDate] = useState<string>('');
   const [vlanId, setVlanId] = useState<string>('');
 
-  const [partners, setPartners] = useState<Partner[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [reportData, setReportData] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    Promise.all([
-      api.getPartners({ is_active: true }),
-      api.getStaff({ is_active: true })
-    ]).then(([partnersRes, staffRes]) => {
-      setPartners(partnersRes);
-      setStaffList(staffRes);
-      if (staffRes.length > 0 && !selectedHarvesterId) {
-        setSelectedHarvesterId(staffRes[0].id.toString());
-      }
-      if (partnersRes.length > 0 && !selectedPartnerId) {
-        setSelectedPartnerId(partnersRes[0].id.toString());
-      }
-    }).catch(console.error);
+    api.getStaff({ is_active: true })
+      .then((staffRes) => {
+        setStaffList(staffRes);
+        if (staffRes.length > 0 && !selectedHarvesterId) {
+          setSelectedHarvesterId(staffRes[0].id.toString());
+        }
+      })
+      .catch(console.error);
   }, []);
 
   const fetchReport = async () => {
@@ -48,7 +42,6 @@ export const ReportsPage: React.FC = () => {
     const params: Record<string, any> = {
       scope,
       harvester_id: scope === 'individual_harvester' && selectedHarvesterId ? parseInt(selectedHarvesterId) : undefined,
-      partner_id: scope === 'individual_partner' && selectedPartnerId ? parseInt(selectedPartnerId) : undefined,
       city: scope === 'group_location' && selectedCity ? selectedCity : undefined,
     };
 
@@ -82,17 +75,9 @@ export const ReportsPage: React.FC = () => {
   useEffect(() => {
     fetchReport();
   }, [
-    reportType, scope, selectedHarvesterId, selectedPartnerId, 
+    reportType, scope, selectedHarvesterId,
     selectedCity, periodMonth, dailyDate, startDate, endDate, vlanId
   ]);
-
-  const formatPeso = (val?: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2
-    }).format(val || 0);
-  };
 
   const getExportUrl = (format: 'pdf' | 'excel' | 'csv') => {
     const params = new URLSearchParams({
@@ -101,9 +86,6 @@ export const ReportsPage: React.FC = () => {
     });
     if (scope === 'individual_harvester' && selectedHarvesterId) {
       params.append('harvester_id', selectedHarvesterId);
-    }
-    if (scope === 'individual_partner' && selectedPartnerId) {
-      params.append('partner_id', selectedPartnerId);
     }
     if (scope === 'group_location' && selectedCity) {
       params.append('city', selectedCity);
@@ -127,7 +109,7 @@ export const ReportsPage: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-navy-900 dark:text-white">Financial Reports & Auditing</h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-0.5">
-            Individual, group, and global financial statements with multi-format export.
+            Fleet collections, harvester incentives, and company net financial statements with multi-format export.
           </p>
         </div>
 
@@ -184,7 +166,6 @@ export const ReportsPage: React.FC = () => {
           {[
             { id: 'all', label: 'All Fleet & Personnel', icon: Layers },
             { id: 'individual_harvester', label: 'Individual Harvester', icon: UserCheck },
-            { id: 'individual_partner', label: 'Individual Partner', icon: Users },
             { id: 'group_location', label: 'Group by City / Municipality', icon: MapPin },
           ].map((item) => {
             const Icon = item.icon;
@@ -223,21 +204,6 @@ export const ReportsPage: React.FC = () => {
             </div>
           )}
 
-          {scope === 'individual_partner' && (
-            <div>
-              <label className="block text-gray-600 dark:text-slate-300 font-bold mb-1">Select Partner:</label>
-              <select
-                value={selectedPartnerId}
-                onChange={(e) => setSelectedPartnerId(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3 py-2 font-medium focus:outline-none focus:border-emerald-500"
-              >
-                {partners.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.partner_code})</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {scope === 'group_location' && (
             <div>
               <label className="block text-gray-600 dark:text-slate-300 font-bold mb-1">City / Municipality:</label>
@@ -247,6 +213,7 @@ export const ReportsPage: React.FC = () => {
                 className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3 py-2 font-medium focus:outline-none focus:border-emerald-500"
               >
                 <option value="">All Cities / Locations</option>
+                <option value={settings.default_city}>{settings.default_city}</option>
                 <option value="Valencia">Valencia City</option>
                 <option value="Malaybalay">Malaybalay City</option>
                 <option value="Maramag">Maramag</option>
@@ -317,11 +284,11 @@ export const ReportsPage: React.FC = () => {
 
       {/* Summary KPI Cards */}
       {reportData && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
-            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Gross Coin Collections</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Gross Fleet Collections</span>
             <div className="text-2xl font-black text-navy-900 dark:text-white mt-1">
-              {formatPeso(reportData.total_gross_harvest)}
+              {formatCurrency(reportData.total_gross_harvest)}
             </div>
             <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
               {reportData.total_records || reportData.machines_harvested_count || 0} collections recorded
@@ -329,25 +296,21 @@ export const ReportsPage: React.FC = () => {
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
-            <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Location Partner Share (25%)</span>
-            <div className="text-2xl font-black text-purple-700 dark:text-purple-300 mt-1">
-              {formatPeso(reportData.total_partner_shares)}
-            </div>
-            <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Distributed to venue partners</div>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Harvester Incentives (5%)</span>
+            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+              Harvester Incentives ({settings.staff_incentive_percentage}%)
+            </span>
             <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
-              {formatPeso(reportData.total_staff_incentives)}
+              {formatCurrency(reportData.total_staff_incentives)}
             </div>
-            <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Commission paid to harvesters</div>
+            <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Staff commission paid</div>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">GARTECH Net Share (70%)</span>
+            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              {settings.company_name} Net ({settings.gartech_net_percentage}%)
+            </span>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-              {formatPeso(reportData.total_gartech_net)}
+              {formatCurrency(reportData.total_gartech_net)}
             </div>
             <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Retained operating revenue</div>
           </div>
@@ -373,25 +336,23 @@ export const ReportsPage: React.FC = () => {
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">VLAN ID</th>
                 <th className="py-3 px-4">Vendo Name</th>
-                <th className="py-3 px-4">Partner</th>
                 <th className="py-3 px-4">Harvester</th>
-                <th className="py-3 px-4 text-right">Gross (₱)</th>
-                <th className="py-3 px-4 text-right">Partner 25% (₱)</th>
-                <th className="py-3 px-4 text-right">Staff 5% (₱)</th>
-                <th className="py-3 px-4 text-right">GARTECH 70% (₱)</th>
+                <th className="py-3 px-4 text-right">Gross</th>
+                <th className="py-3 px-4 text-right">Staff ({settings.staff_incentive_percentage}%)</th>
+                <th className="py-3 px-4 text-right">{settings.company_name} Net ({settings.gartech_net_percentage}%)</th>
                 <th className="py-3 px-4 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-gray-400 dark:text-slate-500">
+                  <td colSpan={9} className="py-8 text-center text-gray-400 dark:text-slate-500">
                     Loading financial statement...
                   </td>
                 </tr>
               ) : !reportData || !reportData.records || reportData.records.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-gray-400 dark:text-slate-500">
+                  <td colSpan={9} className="py-8 text-center text-gray-400 dark:text-slate-500">
                     No transactions match this reporting criteria.
                   </td>
                 </tr>
@@ -402,12 +363,10 @@ export const ReportsPage: React.FC = () => {
                     <td className="py-3 px-4 text-gray-500 dark:text-slate-400">{r.harvest_date}</td>
                     <td className="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400">VLAN {r.vlan_id}</td>
                     <td className="py-3 px-4 font-semibold text-navy-900 dark:text-white">{r.vendo_name}</td>
-                    <td className="py-3 px-4 text-purple-700 dark:text-purple-300">{r.partner_name}</td>
                     <td className="py-3 px-4 text-amber-700 dark:text-amber-300">{r.harvester_name || '–'}</td>
-                    <td className="py-3 px-4 text-right font-bold text-navy-900 dark:text-white">{formatPeso(r.gross_harvest)}</td>
-                    <td className="py-3 px-4 text-right font-semibold text-purple-700 dark:text-purple-300">{formatPeso(r.partner_share)}</td>
-                    <td className="py-3 px-4 text-right font-semibold text-amber-700 dark:text-amber-300">{formatPeso(r.staff_incentive)}</td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatPeso(r.gartech_net)}</td>
+                    <td className="py-3 px-4 text-right font-bold text-navy-900 dark:text-white">{formatCurrency(r.gross_harvest)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(r.staff_incentive)}</td>
+                    <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(r.gartech_net)}</td>
                     <td className="py-3 px-4 text-center">
                       <span className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
                         {r.status}

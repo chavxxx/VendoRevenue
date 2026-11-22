@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../context/SettingsContext';
 import { api } from '../services/api';
 import { 
   LogOut, 
@@ -29,6 +30,7 @@ interface UpdateInfo {
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { settings } = useSettings();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -79,23 +81,24 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center space-x-3">
           <div className="relative group">
             <img 
-              src="/logo.jpg" 
-              alt="GARTECH Logo" 
+              src={settings.logo_url || "/logo.jpg"} 
+              alt="Logo" 
+              key={settings.logo_url}
               className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shadow-sm shadow-emerald-500/30"
               onError={(e) => {
-                // Fallback to text badge if image fails
-                (e.target as HTMLElement).style.display = 'none';
+                // Fallback to default /logo.jpg if custom fails
+                const target = e.target as HTMLImageElement;
+                if (!target.src.endsWith('/logo.jpg')) {
+                  target.src = '/logo.jpg';
+                }
               }}
             />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-lg tracking-wider text-white">GARTECH</span>
-              <span className="text-[10px] tracking-widest uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-bold">
-                NETWORK
-              </span>
+              <span className="font-extrabold text-lg tracking-wider text-white">{settings.company_name}</span>
             </div>
-            <p className="text-[10px] text-slate-400 hidden sm:block">Vendo Management & Revenue Sharing</p>
+            <p className="text-[10px] text-slate-400 hidden sm:block">{settings.company_tagline}</p>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SettingsProvider } from './context/SettingsContext';
 import { LoginPage } from './pages/auth/LoginPage';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -8,7 +9,6 @@ import { DashboardPage } from './pages/admin/DashboardPage';
 import { VendosPage } from './pages/admin/VendosPage';
 import { HarvestEncodingPage } from './pages/encoder/HarvestEncodingPage';
 import { HarvestsPage } from './pages/admin/HarvestsPage';
-import { PartnersPage } from './pages/admin/PartnersPage';
 import { StaffPage } from './pages/admin/StaffPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
@@ -54,8 +54,6 @@ const AppContent: React.FC = () => {
         return <HarvestsPage />;
       case 'reports':
         return <ReportsPage />;
-      case 'partners':
-        return isAdmin ? <PartnersPage /> : <DashboardPage />;
       case 'staff':
         return isAdmin ? <StaffPage /> : <DashboardPage />;
       case 'settings':
@@ -81,9 +79,11 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </SettingsProvider>
     </ThemeProvider>
   );
 };

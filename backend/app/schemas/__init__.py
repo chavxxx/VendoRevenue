@@ -119,11 +119,48 @@ class StaffResponse(StaffBase):
     class Config:
         from_attributes = True
 
+# --- SYSTEM SETTINGS SCHEMAS ---
+class SystemSettingBase(BaseModel):
+    company_name: str = "GARTECH VENDO NETWORK"
+    company_tagline: str = "Vendo Machine Revenue Management & Monitoring"
+    contact_phone: Optional[str] = "0917-000-0001"
+    contact_email: Optional[str] = "support@gartech.ph"
+    company_address: Optional[str] = "Valencia City, Bukidnon, Philippines"
+    default_city: str = "Valencia"
+    default_province: str = "Bukidnon"
+    currency_symbol: str = "₱"
+    logo_url: str = "/logo.jpg"
+    staff_incentive_percentage: Decimal = Decimal("5.00")
+    gartech_net_percentage: Decimal = Decimal("95.00")
+
+class SystemSettingUpdate(BaseModel):
+    company_name: Optional[str] = None
+    company_tagline: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    company_address: Optional[str] = None
+    default_city: Optional[str] = None
+    default_province: Optional[str] = None
+    currency_symbol: Optional[str] = None
+    staff_incentive_percentage: Optional[Decimal] = None
+    gartech_net_percentage: Optional[Decimal] = None
+
+class SystemSettingResponse(SystemSettingBase):
+    id: int
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class DatabaseCleanRequest(BaseModel):
+    target: str = Field(..., description="harvests, vendos, or all")
+    confirmation: str = Field(..., description="Must be 'CONFIRM'")
+
 # --- VENDO SCHEMAS ---
 class VendoBase(BaseModel):
     vlan_id: int
     vendo_name: str
-    partner_id: int
+    partner_id: Optional[int] = None
     complete_address: str
     city_municipality: str = "Valencia"
     province: str = "Bukidnon"
@@ -195,7 +232,7 @@ class HarvestResponse(BaseModel):
     vendo_id: int
     vlan_id: int
     vendo_name: Optional[str] = None
-    partner_id: int
+    partner_id: Optional[int] = None
     partner_name: Optional[str] = None
     harvester_id: Optional[int] = None
     harvester_name: Optional[str] = None
@@ -204,8 +241,8 @@ class HarvestResponse(BaseModel):
     harvest_date: date
     harvest_period: str
     gross_harvest: Decimal
-    partner_percentage: Decimal
-    partner_share: Decimal
+    partner_percentage: Decimal = Decimal("0.00")
+    partner_share: Decimal = Decimal("0.00")
     staff_percentage: Decimal
     staff_incentive: Decimal
     gartech_percentage: Decimal
@@ -227,9 +264,9 @@ class DashboardSummary(BaseModel):
     total_vendos: int
     active_vendos: int
     inactive_vendos: int
-    total_partners: int
+    total_partners: Optional[int] = 0
     total_gross_harvest: Decimal
-    total_partner_shares: Decimal
+    total_partner_shares: Optional[Decimal] = Decimal("0.00")
     total_staff_incentives: Decimal
     total_gartech_net: Decimal
 

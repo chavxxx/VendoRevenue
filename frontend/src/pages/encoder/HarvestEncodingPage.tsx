@@ -1,29 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { useSettings } from '../../context/SettingsContext';
 import { VendoMachine, Staff } from '../../types';
 import { 
-  Coins, 
-  Search, 
-  CheckCircle2, 
-  AlertCircle, 
-  Calendar, 
-  MapPin, 
-  User, 
-  Send
+  PlusCircle, Search, Calendar, User, CheckCircle, 
+  AlertCircle, DollarSign, ArrowRight, ShieldCheck, 
+  MapPin, Clock, Tag
 } from 'lucide-react';
 
 export const HarvestEncodingPage: React.FC = () => {
-  // Step 1: Select Date (Flexible: weekly, bi-weekly, or monthly)
+  const { settings, formatCurrency } = useSettings();
+  
+  // Form State - Final Streamlined Workflow
+  // Step 1: Select Harvest Date
   const [harvestDate, setHarvestDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
   
-  // Step 2: Select Vendo
+  // Step 2: Select Vendo Machine (VLAN lookup or quick dropdown)
   const [vlanSearch, setVlanSearch] = useState<string>('');
   const [selectedVendo, setSelectedVendo] = useState<VendoMachine | null>(null);
   const [vendosList, setVendosList] = useState<VendoMachine[]>([]);
   
-  // Dynamic Harvester Assignment
+  // Harvester Selection
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [selectedHarvesterId, setSelectedHarvesterId] = useState<string>('');
 
@@ -52,13 +51,12 @@ export const HarvestEncodingPage: React.FC = () => {
     const fetchData = async () => {
       try {
         const [vData, sData] = await Promise.all([
-          api.getVendos({ limit: 100 }),
+          api.getVendos({ limit: 200 }),
           api.getStaff({ is_active: true })
         ]);
         setVendosList(vData);
         setStaffList(sData);
         if (sData.length > 0) {
-          // Preselect first field harvester if available
           const firstHarvester = sData.find((s: Staff) => s.role_type === 'FIELD_HARVESTER') || sData[0];
           setSelectedHarvesterId(firstHarvester.id.toString());
         }
@@ -101,7 +99,7 @@ export const HarvestEncodingPage: React.FC = () => {
     }
   };
 
-  // Real-time automated calculation preview
+  // Real-time automated calculation preview (100% company-owned: 5% staff, 95% gartech)
   useEffect(() => {
     const calcTimeout = setTimeout(async () => {
       const grossNum = parseFloat(grossInput);
@@ -112,39 +110,41 @@ export const HarvestEncodingPage: React.FC = () => {
       try {
         const preview = await api.previewHarvest({
           gross_harvest: grossNum,
-          partner_percentage: 25.0,
-          staff_percentage: 5.0
+          partner_percentage: 0.0,
+          staff_percentage: settings.staff_incentive_percentage || 5.0
         });
         setCalculation(preview);
       } catch (err) {
         console.error('Computation preview error', err);
       }
-    }, 120);
+    }, 150);
 
     return () => clearTimeout(calcTimeout);
-  }, [grossInput, selectedVendo]);
+  }, [grossInput, settings.staff_incentive_percentage]);
 
-  // Step 4: Submit Harvest
+  // Final Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
     if (!selectedVendo) {
-      setErrorMsg('Please select a valid Vendo machine.');
+      setErrorMsg('Please select a valid Vendo Machine.');
       return;
     }
     if (!selectedHarvesterId) {
-      setErrorMsg('Please select the Field Harvester who performed the collection.');
+      setErrorMsg('Please select the staff harvester who conducted this collection.');
       return;
     }
+
     const grossNum = parseFloat(grossInput);
     if (isNaN(grossNum) || grossNum <= 0) {
-      setErrorMsg('Please enter a valid gross coin income amount greater than 0.');
+      setErrorMsg('Please enter a valid positive gross income.');
       return;
     }
 
     setSubmitting(true);
-    setErrorMsg(null);
     try {
-      const newTxn = await api.encodeHarvest({
+      const res = await api.encodeHarvest({
         vlan_id: selectedVendo.vlan_id,
         harvest_date: harvestDate,
         gross_harvest: grossNum,
@@ -152,144 +152,150 @@ export const HarvestEncodingPage: React.FC = () => {
         remarks: remarks || undefined
       });
 
-      setSuccessTxn(newTxn);
+      setSuccessTxn(res);
+      // Reset income input and remarks for next entry
       setGrossInput('');
       setRemarks('');
-      setVlanSearch('');
-      setSelectedVendo(null);
+      setCalculation(null);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error submitting harvest record.');
+      setErrorMsg(err.message || 'Failed to submit harvest transaction.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const formatPeso = (val?: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2
-    }).format(val || 0);
+  const handleNewRecord = () => {
+    setSuccessTxn(null);
+    setSelectedVendo(null);
+    setVlanSearch('');
+    setGrossInput('');
+    setRemarks('');
+    setCalculation(null);
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-navy-900 dark:text-white">Encode Coin Harvest</h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-1">
-            4-step workflow: <strong>Select Date → Select Vendo → Assign Harvester & Income → Submit</strong>.
-          </p>
-          <div className="mt-2 inline-flex items-center space-x-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-            <span>✓ Flexible harvest dates (weekly, bi-weekly, or monthly supported)</span>
+          <div className="flex items-center space-x-2">
+            <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              Fast Encoding Workflow
+            </span>
+            <span className="text-gray-400 text-xs">Flexible Harvest Dates</span>
           </div>
-        </div>
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-200 dark:border-emerald-800">
-          <Coins className="w-6 h-6" />
+          <h1 className="text-xl sm:text-2xl font-black text-navy-900 dark:text-white mt-1">
+            Encode Vendo Harvest
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-0.5">
+            Select harvest date, select vendo machine, enter coin income, and submit.
+          </p>
         </div>
       </div>
 
-      {/* Success Notification Banner */}
-      {successTxn && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3">
-              <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  Harvest Recorded Successfully! Ref: {successTxn.transaction_ref}
-                </h3>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
-                  VLAN {successTxn.vlan_id} ({successTxn.vendo_name}) – Gross Income: {formatPeso(successTxn.gross_harvest)}
-                  {successTxn.harvester_name && <span> | Harvester: <strong>{successTxn.harvester_name}</strong></span>}
-                </p>
-                <div className="flex flex-wrap gap-3 mt-3 text-xs font-semibold">
-                  <span className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-slate-700 text-purple-700 dark:text-purple-300">
-                    Partner Share (25%): {formatPeso(successTxn.partner_share)}
-                  </span>
-                  <span className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-slate-700 text-amber-700 dark:text-amber-300">
-                    Harvester Incentive (5%): {formatPeso(successTxn.staff_incentive)}
-                  </span>
-                  <span className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-slate-700 text-emerald-800 dark:text-emerald-300">
-                    GARTECH Net (70%): {formatPeso(successTxn.gartech_net)}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => setSuccessTxn(null)}
-              className="text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 text-xs font-bold px-2 py-1 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Error Alert */}
       {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl p-4 text-xs text-rose-700 dark:text-rose-300 flex items-center">
-          <AlertCircle className="w-4 h-4 mr-2 shrink-0 text-rose-600 dark:text-rose-400" />
+        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 flex items-center space-x-3 text-rose-700 dark:text-rose-400 text-xs sm:text-sm">
+          <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* 4-Step Final Workflow Form */}
+      {/* SUCCESS MODAL / BANNER */}
+      {successTxn && (
+        <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500/40 shadow-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3 text-emerald-800 dark:text-emerald-300">
+              <CheckCircle className="w-6 h-6 text-emerald-500" />
+              <div>
+                <h3 className="text-base font-bold">Harvest Record Successfully Saved & Approved!</h3>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                  Ref: <strong className="font-mono">{successTxn.transaction_ref}</strong> | Period: {successTxn.harvest_period}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleNewRecord}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded-xl shadow-md transition cursor-pointer"
+            >
+              Encode Next Vendo
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 text-xs">
+            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
+              <div className="text-[10px] text-gray-400">Machine</div>
+              <div className="font-bold text-navy-900 dark:text-white">VLAN {successTxn.vlan_id}</div>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
+              <div className="text-[10px] text-gray-400">Gross Harvest</div>
+              <div className="font-black text-emerald-600 dark:text-emerald-400 text-sm">{formatCurrency(successTxn.gross_harvest)}</div>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
+              <div className="text-[10px] text-gray-400">Harvester Incentive</div>
+              <div className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(successTxn.staff_incentive)}</div>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
+              <div className="text-[10px] text-gray-400">GARTECH Net</div>
+              <div className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(successTxn.gartech_net)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Encoding Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* Step 1 & 2: Date & Vendo Selection */}
+        {/* Step 1: Harvest Date & Vendo Selection */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-5 transition-colors">
           <div className="flex items-center space-x-2 border-b border-gray-100 dark:border-slate-800 pb-3">
             <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span>
             <h2 className="text-sm font-bold text-navy-900 dark:text-white uppercase tracking-wider">
-              Select Date & Vendo Machine
+              Harvest Date & Vendo Machine
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 1. Select Date */}
+            {/* Harvest Date Picker */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
-                Harvest Date*
+              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5 flex items-center space-x-1">
+                <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Collection Date (No Monthly Restrictions)*</span>
               </label>
-              <div className="relative">
-                <Calendar className="w-4 h-4 text-gray-400 dark:text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="date"
-                  required
-                  value={harvestDate}
-                  onChange={(e) => setHarvestDate(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
+              <input
+                type="date"
+                required
+                value={harvestDate}
+                onChange={(e) => setHarvestDate(e.target.value)}
+                className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-500"
+              />
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-1">
+                Harvests can occur weekly, bi-weekly, or at irregular intervals.
+              </p>
             </div>
 
-            {/* 2. Select Vendo */}
+            {/* Vendo Machine Selection */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
-                Quick Select Vendo or Type VLAN ID*
+              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5 flex items-center space-x-1">
+                <Search className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Select Vendo (or type VLAN ID)*</span>
               </label>
               <div className="flex space-x-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-gray-400 dark:text-slate-500 absolute left-3.5 top-3" />
-                  <input
-                    type="number"
-                    placeholder="VLAN (e.g. 101)"
-                    value={vlanSearch}
-                    onChange={(e) => handleVlanSearch(e.target.value)}
-                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
+                <input
+                  type="number"
+                  placeholder="VLAN ID"
+                  value={vlanSearch}
+                  onChange={(e) => handleVlanSearch(e.target.value)}
+                  className="w-28 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3 py-2.5 text-xs sm:text-sm font-bold font-mono focus:outline-none focus:border-emerald-500 text-center"
+                />
                 <select
                   value={selectedVendo ? selectedVendo.vlan_id.toString() : ''}
                   onChange={(e) => handleDropdownSelect(e.target.value)}
-                  className="bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-emerald-500 max-w-[200px]"
+                  className="flex-1 bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3 py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-500 truncate"
                 >
-                  <option value="">Choose Machine...</option>
+                  <option value="">Choose from machine roster...</option>
                   {vendosList.map((v) => (
-                    <option key={v.vlan_id} value={v.vlan_id}>
-                      VLAN {v.vlan_id} - {v.vendo_name}
+                    <option key={v.id} value={v.vlan_id}>
+                      VLAN {v.vlan_id} – {v.vendo_name} ({v.city_municipality})
                     </option>
                   ))}
                 </select>
@@ -302,7 +308,7 @@ export const HarvestEncodingPage: React.FC = () => {
             <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-md">
+                  <span className="bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-md font-mono">
                     VLAN {selectedVendo.vlan_id}
                   </span>
                   <span className="font-bold text-navy-900 dark:text-white text-sm">{selectedVendo.vendo_name}</span>
@@ -313,12 +319,12 @@ export const HarvestEncodingPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600 dark:text-slate-400 pt-1">
                 <div className="flex items-center space-x-1.5">
-                  <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span><strong>Partner:</strong> {selectedVendo.partner_name}</span>
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="truncate"><strong>Address:</strong> {selectedVendo.complete_address}</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="truncate"><strong>Location:</strong> {selectedVendo.complete_address}</span>
+                  <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span><strong>Municipality:</strong> {selectedVendo.city_municipality}, {selectedVendo.province}</span>
                 </div>
               </div>
             </div>
@@ -329,7 +335,7 @@ export const HarvestEncodingPage: React.FC = () => {
           )}
         </div>
 
-        {/* Step 3: Harvester Assignment & Gross Income */}
+        {/* Step 2: Harvester Assignment & Gross Income */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-5 transition-colors">
           <div className="flex items-center space-x-2 border-b border-gray-100 dark:border-slate-800 pb-3">
             <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span>
@@ -365,10 +371,12 @@ export const HarvestEncodingPage: React.FC = () => {
             {/* Gross Coin Harvest Amount */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
-                GROSS COIN HARVEST AMOUNT (₱)*
+                GROSS COIN HARVEST AMOUNT ({settings.currency_symbol || '₱'})*
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-3 text-lg font-bold text-gray-400 dark:text-slate-500">₱</span>
+                <span className="absolute left-4 top-3 text-lg font-bold text-gray-400 dark:text-slate-500">
+                  {settings.currency_symbol || '₱'}
+                </span>
                 <input
                   type="number"
                   step="0.01"
@@ -384,55 +392,44 @@ export const HarvestEncodingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Real-time Financial Breakdown Display */}
+          {/* Real-time Financial Breakdown Display (No Partner) */}
           {calculation && (
             <div className="bg-slate-950 text-white p-6 rounded-2xl shadow-xl space-y-4 border border-slate-800">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                  Live Automatic Revenue Split
+                  Live Revenue Distribution
                 </span>
                 <span className="text-[11px] bg-slate-900 px-2.5 py-0.5 rounded text-slate-300 font-mono border border-slate-800">
-                  Exact Decimal Precision
+                  100% Company-Owned Vendo
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Partner Share (25%) */}
-                <div className="bg-slate-900 p-4 rounded-xl border border-purple-500/30">
-                  <div className="text-xs text-purple-400 font-bold uppercase">
-                    Location Partner ({calculation.partner_percentage}%)
-                  </div>
-                  <div className="text-xl font-extrabold text-white mt-1">
-                    {formatPeso(calculation.partner_share)}
-                  </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Payable to {selectedVendo?.partner_name}</div>
-                </div>
-
-                {/* Staff / Harvester Incentive (5%) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Staff / Harvester Incentive */}
                 <div className="bg-slate-900 p-4 rounded-xl border border-amber-500/30">
                   <div className="text-xs text-amber-400 font-bold uppercase">
                     Harvester Incentive ({calculation.staff_percentage}%)
                   </div>
-                  <div className="text-xl font-extrabold text-white mt-1">
-                    {formatPeso(calculation.staff_incentive)}
+                  <div className="text-2xl font-extrabold text-white mt-1">
+                    {formatCurrency(calculation.staff_incentive)}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Assigned field staff commission</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Assigned field staff incentive</div>
                 </div>
 
-                {/* GARTECH Net (70%) */}
+                {/* GARTECH Net */}
                 <div className="bg-slate-900 p-4 rounded-xl border border-emerald-500/30">
                   <div className="text-xs text-emerald-400 font-bold uppercase">
                     GARTECH Net Share ({calculation.gartech_percentage}%)
                   </div>
-                  <div className="text-xl font-extrabold text-white mt-1">
-                    {formatPeso(calculation.gartech_net)}
+                  <div className="text-2xl font-extrabold text-white mt-1">
+                    {formatCurrency(calculation.gartech_net)}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">Retained net revenue</div>
                 </div>
               </div>
 
               <div className="text-right text-xs text-slate-400 pt-2 border-t border-slate-800 font-mono">
-                {formatPeso(calculation.partner_share)} + {formatPeso(calculation.staff_incentive)} + {formatPeso(calculation.gartech_net)} = {formatPeso(calculation.gross_harvest)}
+                {formatCurrency(calculation.staff_incentive)} + {formatCurrency(calculation.gartech_net)} = {formatCurrency(calculation.gross_harvest)}
               </div>
             </div>
           )}
@@ -451,22 +448,17 @@ export const HarvestEncodingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Step 4: Submit Button */}
-        <div className="flex justify-end">
+        {/* Submit Button */}
+        <div className="flex justify-end pt-2">
           <button
             type="submit"
-            disabled={submitting || !selectedVendo || !grossInput || !selectedHarvesterId}
-            className="w-full sm:w-auto px-10 py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center transition cursor-pointer"
+            disabled={submitting || !selectedVendo || !grossInput}
+            className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-xl shadow-emerald-600/30 transition transform active:scale-95 cursor-pointer"
           >
-            {submitting ? (
-              <span className="animate-spin mr-2">◌</span>
-            ) : (
-              <Send className="w-4 h-4 mr-2" />
-            )}
-            Submit Harvest Record
+            <span>{submitting ? 'Submitting Record...' : 'Submit Harvest Record'}</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-
       </form>
     </div>
   );

@@ -72,17 +72,14 @@ export const api = {
   getVendoByVlan: (vlanId: number) => apiRequest(`/vendos/${vlanId}`),
   createVendo: (data: any) => apiRequest('/vendos/', { method: 'POST', body: JSON.stringify(data) }),
   updateVendo: (vlanId: number, data: any) => apiRequest(`/vendos/${vlanId}`, { method: 'PUT', body: JSON.stringify(data) }),
-  archiveVendo: (vlanId: number) => apiRequest(`/vendos/${vlanId}`, { method: 'DELETE' }),
+  deleteVendo: (vlanId: number) => apiRequest(`/vendos/${vlanId}`, { method: 'DELETE' }),
+  clearAllVendos: () => apiRequest('/vendos/clear-all', { method: 'POST' }),
   importVendosCsv: (formData: FormData) => apiRequest('/vendos/import/csv', { method: 'POST', body: formData }),
 
-  // Partners
-  getPartners: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/partners/?${query}`);
-  },
-  getPartner: (id: number) => apiRequest(`/partners/${id}`),
-  createPartner: (data: any) => apiRequest('/partners/', { method: 'POST', body: JSON.stringify(data) }),
-  updatePartner: (id: number, data: any) => apiRequest(`/partners/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  // System Settings & Customization
+  getSystemSettings: () => apiRequest('/users/system/settings'),
+  updateSystemSettings: (data: any) => apiRequest('/users/system/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  uploadLogo: (formData: FormData) => apiRequest('/users/system/settings/logo', { method: 'POST', body: formData }),
 
   // Staff / Harvesters
   getStaff: (params: Record<string, any> = {}) => {
@@ -117,7 +114,6 @@ export const api = {
   getDailyChart: (days: number = 14) => apiRequest(`/dashboard/charts/daily?days=${days}`),
   getMonthlyChart: (months: number = 6) => apiRequest(`/dashboard/charts/monthly?months=${months}`),
   getTopVendos: (limit: number = 10) => apiRequest(`/dashboard/charts/top-vendos?limit=${limit}`),
-  getTopPartners: (limit: number = 10) => apiRequest(`/dashboard/charts/top-partners?limit=${limit}`),
   getLocationPerformance: () => apiRequest('/dashboard/charts/locations'),
 
   // Harvesters Performance (Requirements 1 & 2)
@@ -130,7 +126,7 @@ export const api = {
     return apiRequest(`/dashboard/harvesters/${staffId}?${query}`);
   },
 
-  // Reports (Requirement 3: Individual, Group, All)
+  // Reports (Requirements: Individual, Group, All)
   getDailyReport: (params: Record<string, any> = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/reports/daily?${query}`);
@@ -156,5 +152,6 @@ export const api = {
 
   // System & GitHub Updates
   checkSystemUpdates: () => apiRequest('/users/system/update-check'),
-  cleanDatabase: () => apiRequest('/users/system/clean-database', { method: 'POST' }),
+  cleanDatabase: (target: 'harvests' | 'vendos' | 'all' = 'harvests') => 
+    apiRequest(`/users/system/clean-database?target=${target}`, { method: 'POST' }),
 };

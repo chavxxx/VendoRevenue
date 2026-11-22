@@ -89,7 +89,7 @@ class VendoMachine(Base):
     id = Column(Integer, primary_key=True, index=True)
     vlan_id = Column(Integer, unique=True, index=True, nullable=False)
     vendo_name = Column(String(150), nullable=False, index=True)
-    partner_id = Column(Integer, ForeignKey("partners.id"), nullable=False, index=True)
+    partner_id = Column(Integer, ForeignKey("partners.id"), nullable=True, index=True)
     complete_address = Column(String(255), nullable=False)
     city_municipality = Column(String(100), default="Valencia", nullable=False)
     province = Column(String(100), default="Bukidnon", nullable=False)
@@ -107,6 +107,23 @@ class VendoMachine(Base):
     assigned_staff = relationship("Staff", foreign_keys=[assigned_staff_id])
     assigned_harvester = relationship("Staff", back_populates="assigned_vendos", foreign_keys=[assigned_harvester_id])
     harvests = relationship("HarvestTransaction", back_populates="vendo")
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_name = Column(String(150), default="GARTECH VENDO NETWORK", nullable=False)
+    company_tagline = Column(String(255), default="Vendo Machine Revenue Management & Monitoring", nullable=False)
+    contact_phone = Column(String(50), default="0917-000-0001", nullable=True)
+    contact_email = Column(String(100), default="support@gartech.ph", nullable=True)
+    company_address = Column(String(255), default="Valencia City, Bukidnon, Philippines", nullable=True)
+    default_city = Column(String(100), default="Valencia", nullable=False)
+    default_province = Column(String(100), default="Bukidnon", nullable=False)
+    currency_symbol = Column(String(10), default="₱", nullable=False)
+    logo_url = Column(String(255), default="/logo.jpg", nullable=False)
+    staff_incentive_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)
+    gartech_net_percentage = Column(Numeric(5, 2), default=95.00, nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class RevenueShareConfiguration(Base):
     __tablename__ = "revenue_share_configurations"
@@ -127,7 +144,7 @@ class HarvestTransaction(Base):
     transaction_ref = Column(String(50), unique=True, index=True, nullable=False)
     vendo_id = Column(Integer, ForeignKey("vendo_machines.id"), nullable=False, index=True)
     vlan_id = Column(Integer, nullable=False, index=True)
-    partner_id = Column(Integer, ForeignKey("partners.id"), nullable=False, index=True)
+    partner_id = Column(Integer, ForeignKey("partners.id"), nullable=True, index=True)
     harvester_id = Column(Integer, ForeignKey("staff.id"), nullable=True, index=True)
     encoded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
@@ -135,11 +152,11 @@ class HarvestTransaction(Base):
     harvest_period = Column(String(7), nullable=False, index=True)
     
     gross_harvest = Column(Numeric(12, 2), nullable=False)
-    partner_percentage = Column(Numeric(5, 2), nullable=False)
-    partner_share = Column(Numeric(12, 2), nullable=False)
-    staff_percentage = Column(Numeric(5, 2), nullable=False)
+    partner_percentage = Column(Numeric(5, 2), default=0.00, nullable=False)
+    partner_share = Column(Numeric(12, 2), default=0.00, nullable=False)
+    staff_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)
     staff_incentive = Column(Numeric(12, 2), nullable=False)
-    gartech_percentage = Column(Numeric(5, 2), nullable=False)
+    gartech_percentage = Column(Numeric(5, 2), default=95.00, nullable=False)
     gartech_net = Column(Numeric(12, 2), nullable=False)
     
     status = Column(Enum(HarvestStatus), default=HarvestStatus.APPROVED, nullable=False, index=True)
