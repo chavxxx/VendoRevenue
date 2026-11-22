@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: gartech_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gartech_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gartech_secure_pass_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-gartech_vendo_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gartech_admin} -d ${POSTGRES_DB:-gartech_vendo_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gartech_net
+
+  # 2. FastAPI Backend
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: gartech_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-gartech_admin}:${POSTGRES_PASSWORD:-gartech_secure_pass_2026}@postgres:5432/${POSTGRES_DB:-gartech_vendo_db}
+      - SECRET_KEY=${SECRET_KEY:-gartech-vendo-super-secure-production-key-2026-bukidnon-xyz789}
+      - UPLOAD_DIR=/app/uploads
+      - TIMEZONE=Asia/Manila
+    volumes:
+      - uploads:/app/uploads
+      - backups:/app/backups
+    expose:
+      - "8000"
+    networks:
+      - gartech_net
+
+  # 3. React Frontend Web Application
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: gartech_frontend
+    restart: always
+    depends_on:
+      - backend
+    expose:
+      - "80"
+    networks:
+      - gartech_net
+
+  # 4. Main Nginx Gateway & Reverse Proxy (SSL / HTTPS)
+  nginx:
+    image: nginx:alpine
+    container_name: gartech_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+      - uploads:/var/www/uploads:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - gartech_net
+
+  # 5. Let's Encrypt Certbot SSL Auto-Renewal
+  certbot:
+    image: certbot/certbot
+    container_name: gartech_certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - gartech_net
+
+networks:
+  gartech_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+  uploads:
+    driver: local
+  backups:
+    driver: local
+  certbot_conf:
+    driver: local
+  certbot_www:
+    driver: local

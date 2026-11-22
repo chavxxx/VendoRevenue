@@ -1,0 +1,35 @@
+# Python & Backend
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.db
+*.sqlite
+*.sqlite3
+backend/gartech_vendo.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Environment and Secrets
+.env
+*.env.local
+*.env.*.local
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Uploads & Backups
+uploads/*
+!uploads/.gitkeep
+backups/*
+!backups/.gitkeep
+mobile/
