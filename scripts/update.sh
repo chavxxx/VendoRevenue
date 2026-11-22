@@ -34,10 +34,11 @@ if command -v npm &> /dev/null && [ -d "${APP_DIR}/frontend" ]; then
     npm run build 2>/dev/null || true
 fi
 
-# 3. Reload Docker Stack
+# 3. Reload Docker Stack (Preserving All Production Data in Named Volumes)
 if command -v docker &> /dev/null && [ -d "${APP_DIR}/docker" ]; then
     echo -e "${GREEN}[3/3] Rebuilding & restarting application containers...${NC}"
     cd "${APP_DIR}/docker"
+    # Never pass -v to down or restart; pgdata named volume preserves all database records!
     docker compose build backend frontend
     docker compose up -d --no-deps backend frontend
 fi

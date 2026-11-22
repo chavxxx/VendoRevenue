@@ -98,9 +98,16 @@ export const api = {
   getStaffDetail: (id: number) => apiRequest(`/staff/${id}`),
   createStaff: (data: any) => apiRequest('/staff/', { method: 'POST', body: JSON.stringify(data) }),
   updateStaff: (id: number, data: any) => apiRequest(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteStaff: (id: number) => apiRequest(`/staff/${id}`, { method: 'DELETE' }),
+
+  // Users & System Accounts
+  getUsers: () => apiRequest('/users/'),
+  createUser: (data: any) => apiRequest('/users/', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id: number, data: any) => apiRequest(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id: number) => apiRequest(`/users/${id}`, { method: 'DELETE' }),
 
   // Harvests
-  previewHarvest: (data: { gross_harvest: number; partner_percentage?: number; staff_percentage?: number }) =>
+  previewHarvest: (data: { gross_harvest: number; vlan_id?: number; partner_percentage?: number; staff_percentage?: number }) =>
     apiRequest('/harvests/preview', { method: 'POST', body: JSON.stringify(data) }),
   encodeHarvest: (data: { vlan_id: number; harvest_date: string; gross_harvest: number; harvester_id: number; remarks?: string }) =>
     apiRequest('/harvests/', { method: 'POST', body: JSON.stringify(data) }),
@@ -163,8 +170,7 @@ export const api = {
     return apiRequest(`/reports/custom?${query}`);
   },
 
-  // Users & Settings
-  getUsers: () => apiRequest('/users/'),
+  // Settings & Configuration
   getRevenueConfig: () => apiRequest('/users/config/revenue-share'),
   updateRevenueConfig: (data: any) => apiRequest('/users/config/revenue-share', { method: 'POST', body: JSON.stringify(data) }),
   getAuditLogs: (params: Record<string, any> = {}) => apiRequest(`/audit/?${new URLSearchParams(params).toString()}`),

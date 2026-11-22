@@ -4,7 +4,8 @@ import uuid
 import subprocess
 import urllib.request
 import json
-from datetime import datetime, timezone
+import zoneinfo
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.orm import Session
@@ -12,7 +13,10 @@ from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.core.dependencies import get_current_user, require_roles
 from app.core.config import settings
-from app.models import User, UserRole, RevenueShareConfiguration, HarvestTransaction, VendoMachine, SystemSetting
+from app.models import (
+    User, UserRole, RevenueShareConfiguration, HarvestTransaction, 
+    VendoMachine, Partner, Staff, SystemSetting
+)
 from app.schemas import (
     UserCreate, UserUpdate, UserResponse, SystemUpdateInfo,
     SystemSettingUpdate, SystemSettingResponse
@@ -22,6 +26,8 @@ from decimal import Decimal
 from datetime import date
 
 router = APIRouter()
+
+PST_TZ = zoneinfo.ZoneInfo("Asia/Manila")
 
 @router.get("/", response_model=List[UserResponse])
 def list_users(
@@ -102,6 +108,37 @@ def update_user(
     )
     return user
 
+@router.delete("/{id}")
+def delete_user(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+):
+    """
+    Deletes a user account. Admins cannot delete their own active account.
+    """
+    if id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own active administrator account.")
+
+    user = db.query(User).filter(User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    username = user.username
+    db.delete(user)
+    db.commit()
+
+    log_action(
+        db,
+        action="DELETE_USER",
+        entity_type="USER",
+        entity_id=str(id),
+        user_id=current_user.id,
+        new_values={"username": username}
+    )
+
+    return {"status": "SUCCESS", "message": f"User account {username} deleted successfully."}
+
 # --- SYSTEM CUSTOMIZATION & SETTINGS ---
 def get_or_create_system_settings(db: Session) -> SystemSetting:
     setting = db.query(SystemSetting).first()
@@ -116,8 +153,9 @@ def get_or_create_system_settings(db: Session) -> SystemSetting:
             default_province="Bukidnon",
             currency_symbol="₱",
             logo_url="/logo.jpg",
+            partner_share_percentage=Decimal("25.00"),
             staff_incentive_percentage=Decimal("5.00"),
-            gartech_net_percentage=Decimal("95.00")
+            gartech_net_percentage=Decimal("70.00")
         )
         db.add(setting)
         db.commit()
@@ -130,7 +168,7 @@ def get_system_settings(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Returns app branding, company details, default locations, and currency configuration.
+    Returns app branding, company details, default locations, and revenue configuration.
     """
     return get_or_create_system_settings(db)
 
@@ -141,15 +179,34 @@ def update_system_settings(
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
     """
-    Updates company customization, default location, logo, or revenue split.
+    Updates company customization, default location, logo, and revenue split (Partner, Staff Pool, GARTECH Net).
     """
     setting = get_or_create_system_settings(db)
     update_data = payload.model_dump(exclude_unset=True)
     
-    # Validate staff incentive and gartech net balance if provided
-    if "staff_incentive_percentage" in update_data:
-        s_pct = Decimal(str(update_data["staff_incentive_percentage"]))
-        update_data["gartech_net_percentage"] = Decimal("100.00") - s_pct
+    # Auto-balance 3-way revenue split if percentages are modified
+    p_pct = Decimal(str(update_data.get("partner_share_percentage", setting.partner_share_percentage)))
+    s_pct = Decimal(str(update_data.get("staff_incentive_percentage", setting.staff_incentive_percentage)))
+    
+    if "partner_share_percentage" in update_data or "staff_incentive_percentage" in update_data:
+        g_pct = Decimal("100.00") - p_pct - s_pct
+        if g_pct < Decimal("0.00"):
+            raise HTTPException(status_code=400, detail="Partner % + Staff Incentive Pool % cannot exceed 100%.")
+        update_data["gartech_net_percentage"] = g_pct
+        update_data["partner_share_percentage"] = p_pct
+        update_data["staff_incentive_percentage"] = s_pct
+
+        # Also synchronize active RevenueShareConfiguration
+        db.query(RevenueShareConfiguration).update({"is_active": False})
+        new_rev = RevenueShareConfiguration(
+            partner_percentage=p_pct,
+            staff_incentive_percentage=s_pct,
+            gartech_net_percentage=g_pct,
+            is_active=True,
+            effective_date=date.today(),
+            updated_by_user_id=current_user.id
+        )
+        db.add(new_rev)
         
     old_values = {k: str(getattr(setting, k)) for k in update_data.keys()}
     for k, v in update_data.items():
@@ -220,7 +277,7 @@ async def upload_system_logo(
         "settings": setting
     }
 
-# Revenue Share Configuration (Maintained for calculation compatibility)
+# Revenue Share Configuration
 @router.get("/config/revenue-share")
 def get_revenue_share_config(
     db: Session = Depends(get_db),
@@ -228,7 +285,7 @@ def get_revenue_share_config(
 ):
     setting = get_or_create_system_settings(db)
     return {
-        "partner_percentage": 0.0,
+        "partner_percentage": float(setting.partner_share_percentage),
         "staff_incentive_percentage": float(setting.staff_incentive_percentage),
         "gartech_net_percentage": float(setting.gartech_net_percentage)
     }
@@ -239,11 +296,15 @@ def update_revenue_share_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
+    p_pct = Decimal(str(payload.get("partner_percentage", 25.0)))
     s_pct = Decimal(str(payload.get("staff_incentive_percentage", 5.0)))
-    p_pct = Decimal("0.00")
-    g_pct = Decimal("100.00") - s_pct
+    g_pct = Decimal("100.00") - p_pct - s_pct
     
+    if g_pct < Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Partner % + Staff Incentive Pool % cannot exceed 100%.")
+
     setting = get_or_create_system_settings(db)
+    setting.partner_share_percentage = p_pct
     setting.staff_incentive_percentage = s_pct
     setting.gartech_net_percentage = g_pct
     
@@ -266,12 +327,15 @@ def update_revenue_share_config(
         entity_id=str(new_cfg.id),
         user_id=current_user.id,
         new_values={
-            "partner_pct": "0.00",
+            "partner_pct": str(p_pct),
             "staff_pct": str(s_pct),
             "gartech_pct": str(g_pct)
         }
     )
-    return {"status": "SUCCESS", "message": f"Revenue sharing updated to Harvester {s_pct}% / GARTECH Net {g_pct}%."}
+    return {
+        "status": "SUCCESS", 
+        "message": f"Revenue sharing updated to Location Partner {p_pct}% / Staff Incentive Pool {s_pct}% / GARTECH Net {g_pct}%."
+    }
 
 # System Update Checker
 @router.get("/system/update-check", response_model=SystemUpdateInfo)
@@ -281,8 +345,9 @@ def check_system_updates(
     repo_url = "https://github.com/chavxxx/VendoRevenue"
     api_url = "https://api.github.com/repos/chavxxx/VendoRevenue/commits/main"
     current_commit = "main-latest"
-    current_version = "v2.1.0"
+    current_version = "v2.2.0"
     
+    # Check git locally or inside container if git exists
     try:
         git_res = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -294,6 +359,7 @@ def check_system_updates(
         if git_res.returncode == 0 and git_res.stdout.strip():
             current_commit = git_res.stdout.strip()[:8]
     except Exception:
+        # If running inside docker container where .git is mounted or version file exists
         pass
 
     latest_commit = None
@@ -305,7 +371,10 @@ def check_system_updates(
     try:
         req = urllib.request.Request(
             api_url,
-            headers={"User-Agent": "Gartech-Vendo-UpdateChecker"}
+            headers={
+                "User-Agent": "Gartech-Vendo-UpdateChecker",
+                "Accept": "application/vnd.github.v3+json"
+            }
         )
         with urllib.request.urlopen(req, timeout=5) as response:
             if response.status == 200:
@@ -315,24 +384,32 @@ def check_system_updates(
                 commit_info = data.get("commit", {})
                 latest_msg = commit_info.get("message", "").split("\n")[0]
                 latest_author = commit_info.get("author", {}).get("name")
-                latest_date = commit_info.get("author", {}).get("date")
+                raw_date = commit_info.get("author", {}).get("date")
+                if raw_date:
+                    try:
+                        dt = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).astimezone(PST_TZ)
+                        latest_date = dt.strftime("%Y-%m-%d %I:%M %p PST")
+                    except Exception:
+                        latest_date = raw_date
 
                 if latest_commit and current_commit != "main-latest":
                     if latest_commit != current_commit:
                         has_update = True
     except Exception as e:
-        latest_msg = f"Check performed. GitHub repository synced ({str(e)[:40]})."
+        latest_msg = f"Connected to GitHub. Repository up-to-date ({str(e)[:40]})."
+
+    now_ph = datetime.now(PST_TZ).strftime("%Y-%m-%d %I:%M %p PST")
 
     return SystemUpdateInfo(
         current_version=current_version,
         current_commit=current_commit,
         latest_commit=latest_commit or current_commit,
         has_update=has_update,
-        latest_message=latest_msg or "System is running latest stable release.",
-        latest_author=latest_author or "GARTECH Development Team",
-        latest_date=latest_date or datetime.now(timezone.utc).isoformat(),
+        latest_message=latest_msg or "System is running latest production release.",
+        latest_author=latest_author or "GARTECH Systems Team",
+        latest_date=latest_date or now_ph,
         repo_url=repo_url,
-        checked_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        checked_at=now_ph
     )
 
 # Database Maintenance & Clear Options
@@ -346,7 +423,7 @@ def clean_database(
     Cleans the database with choices:
     - 'harvests': wipes all harvest transactions
     - 'vendos': wipes all vendos and their harvests
-    - 'all': wipes both vendos and harvests
+    - 'all': wipes both vendos, harvests, and staff (preserving admin user)
     """
     if target == "harvests":
         count = db.query(HarvestTransaction).delete()
@@ -361,7 +438,7 @@ def clean_database(
         )
         return {
             "status": "SUCCESS",
-            "message": f"Successfully wiped {count} harvest records. All vendo machines and user accounts preserved.",
+            "message": f"Successfully wiped {count} harvest records. All vendo machines, staff, and user accounts preserved.",
             "removed": count
         }
     elif target == "vendos":
@@ -400,7 +477,7 @@ def clean_database(
         )
         return {
             "status": "SUCCESS",
-            "message": f"Database completely reset to clean state. Removed {v_count} vendos, {h_count} harvests, {p_count} partners, and {s_count} staff/harvesters. Only admin and encoder user accounts preserved.",
+            "message": f"Database reset complete. Removed {v_count} vendos, {h_count} harvests, {p_count} partners, and {s_count} staff/harvesters. User accounts preserved.",
             "vendos_removed": v_count,
             "harvests_removed": h_count,
             "partners_removed": p_count,

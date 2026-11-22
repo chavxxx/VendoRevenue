@@ -180,3 +180,36 @@ def update_staff(
         assigned_vendos_count=v_count,
         total_incentives_earned=earned
     )
+
+@router.delete("/{id}")
+def delete_staff(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+):
+    """
+    Deletes a staff/harvester member, unlinking associated machines and users.
+    """
+    staff = db.query(Staff).filter(Staff.id == id).first()
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+
+    # Unlink from users
+    db.query(User).filter(User.staff_id == id).update({User.staff_id: None})
+    # Unlink from assigned vendos
+    db.query(VendoMachine).filter(VendoMachine.assigned_harvester_id == id).update({VendoMachine.assigned_harvester_id: None})
+    db.query(VendoMachine).filter(VendoMachine.assigned_staff_id == id).update({VendoMachine.assigned_staff_id: None})
+
+    db.delete(staff)
+    db.commit()
+
+    log_action(
+        db,
+        action="DELETE_STAFF",
+        entity_type="STAFF",
+        entity_id=str(id),
+        user_id=current_user.id,
+        new_values={"full_name": staff.full_name, "staff_code": staff.staff_code}
+    )
+
+    return {"status": "SUCCESS", "message": f"Staff member {staff.full_name} deleted successfully."}

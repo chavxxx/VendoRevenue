@@ -24,7 +24,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Harvesters', icon: LayoutDashboard, show: true },
     { id: 'vendos', label: 'Vendo Machines', icon: Wifi, show: true },
-    { id: 'partners', label: 'Location Partners', icon: Users, show: isAdmin },
     { id: 'harvest-encoding', label: 'Encode Harvest', icon: PlusCircle, show: true },
     { id: 'harvests', label: 'Harvest Records', icon: Receipt, show: true },
     { id: 'reports', label: 'Financial Reports', icon: FileText, show: true },

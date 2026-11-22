@@ -335,12 +335,12 @@ export const ReportsPage: React.FC = () => {
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
             <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-              Harvester Incentives ({settings.staff_incentive_percentage}%)
+              Staff Incentive Pool ({settings.staff_incentive_percentage}%)
             </span>
             <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
               {formatCurrency(reportData.total_staff_incentives || reportData.total_staff_incentive)}
             </div>
-            <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Staff commission paid</div>
+            <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Staff & employee incentives</div>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">

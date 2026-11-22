@@ -99,7 +99,7 @@ export const HarvestEncodingPage: React.FC = () => {
     }
   };
 
-  // Real-time automated calculation preview (100% company-owned: 5% staff, 95% gartech)
+  // Real-time automated calculation preview based on system settings or vendo partner
   useEffect(() => {
     const calcTimeout = setTimeout(async () => {
       const grossNum = parseFloat(grossInput);
@@ -110,8 +110,7 @@ export const HarvestEncodingPage: React.FC = () => {
       try {
         const preview = await api.previewHarvest({
           gross_harvest: grossNum,
-          partner_percentage: 0.0,
-          staff_percentage: settings.staff_incentive_percentage || 5.0
+          vlan_id: selectedVendo?.vlan_id
         });
         setCalculation(preview);
       } catch (err) {
@@ -120,7 +119,7 @@ export const HarvestEncodingPage: React.FC = () => {
     }, 150);
 
     return () => clearTimeout(calcTimeout);
-  }, [grossInput, settings.staff_incentive_percentage]);
+  }, [grossInput, selectedVendo, settings.partner_share_percentage, settings.staff_incentive_percentage]);
 
   // Final Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -227,12 +226,18 @@ export const HarvestEncodingPage: React.FC = () => {
               <div className="text-[10px] text-gray-400">Machine</div>
               <div className="font-bold text-navy-900 dark:text-white">VLAN {successTxn.vlan_id}</div>
             </div>
+            {successTxn.partner_share && Number(successTxn.partner_share) > 0 ? (
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
+                <div className="text-[10px] text-gray-400">Partner Share</div>
+                <div className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(successTxn.partner_share)}</div>
+              </div>
+            ) : null}
             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
               <div className="text-[10px] text-gray-400">Gross Harvest</div>
               <div className="font-black text-emerald-600 dark:text-emerald-400 text-sm">{formatCurrency(successTxn.gross_harvest)}</div>
             </div>
             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
-              <div className="text-[10px] text-gray-400">Harvester Incentive</div>
+              <div className="text-[10px] text-gray-400">Staff Incentive Pool</div>
               <div className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(successTxn.staff_incentive)}</div>
             </div>
             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-100 dark:border-slate-800">
@@ -392,7 +397,7 @@ export const HarvestEncodingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Real-time Financial Breakdown Display (No Partner) */}
+          {/* Real-time Financial Breakdown Display */}
           {calculation && (
             <div className="bg-slate-950 text-white p-6 rounded-2xl shadow-xl space-y-4 border border-slate-800">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -400,20 +405,31 @@ export const HarvestEncodingPage: React.FC = () => {
                   Live Revenue Distribution
                 </span>
                 <span className="text-[11px] bg-slate-900 px-2.5 py-0.5 rounded text-slate-300 font-mono border border-slate-800">
-                  100% Company-Owned Vendo
+                  {calculation.partner_share > 0 ? `Partner Share ${calculation.partner_percentage}%` : 'Standard Split'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Staff / Harvester Incentive */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Location Partner Share */}
+                <div className="bg-slate-900 p-4 rounded-xl border border-blue-500/30">
+                  <div className="text-xs text-blue-400 font-bold uppercase">
+                    Partner Share ({calculation.partner_percentage}%)
+                  </div>
+                  <div className="text-2xl font-extrabold text-white mt-1">
+                    {formatCurrency(calculation.partner_share)}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Location partner payout</div>
+                </div>
+
+                {/* Staff / Harvester Incentive Pool */}
                 <div className="bg-slate-900 p-4 rounded-xl border border-amber-500/30">
                   <div className="text-xs text-amber-400 font-bold uppercase">
-                    Harvester Incentive ({calculation.staff_percentage}%)
+                    Staff Incentive Pool ({calculation.staff_percentage}%)
                   </div>
                   <div className="text-2xl font-extrabold text-white mt-1">
                     {formatCurrency(calculation.staff_incentive)}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Assigned field staff incentive</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">All staff & employee pool</div>
                 </div>
 
                 {/* GARTECH Net */}
@@ -429,7 +445,7 @@ export const HarvestEncodingPage: React.FC = () => {
               </div>
 
               <div className="text-right text-xs text-slate-400 pt-2 border-t border-slate-800 font-mono">
-                {formatCurrency(calculation.staff_incentive)} + {formatCurrency(calculation.gartech_net)} = {formatCurrency(calculation.gross_harvest)}
+                {formatCurrency(calculation.partner_share)} + {formatCurrency(calculation.staff_incentive)} + {formatCurrency(calculation.gartech_net)} = {formatCurrency(calculation.gross_harvest)}
               </div>
             </div>
           )}

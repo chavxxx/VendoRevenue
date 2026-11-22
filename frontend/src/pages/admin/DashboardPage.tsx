@@ -318,7 +318,7 @@ export const DashboardPage: React.FC = () => {
       {activeTab === 'fleet' && (
         <div className="space-y-6">
           {/* KPI Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Total Gross Harvest */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
@@ -335,24 +335,24 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* GARTECH Net Revenue */}
+            {/* Partner Share */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">GARTECH Net Share ({settings.gartech_net_percentage || 95}%)</span>
-                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
-                  <TrendingUp className="w-5 h-5" />
+                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Partner Share ({settings.partner_share_percentage || 25}%)</span>
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                  <Users className="w-5 h-5" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
-                {formatCurrency(summary?.total_gartech_net)}
+              <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-2">
+                {formatCurrency(summary?.total_partner_shares)}
               </div>
-              <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">Retained operating revenue</div>
+              <div className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">Location partner payouts</div>
             </div>
 
-            {/* Staff Incentives */}
+            {/* Staff Incentive Pool */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Harvester Incentives ({settings.staff_incentive_percentage || 5}%)</span>
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Staff Pool ({settings.staff_incentive_percentage || 5}%)</span>
                 <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
                   <Award className="w-5 h-5" />
                 </div>
@@ -360,7 +360,21 @@ export const DashboardPage: React.FC = () => {
               <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-2">
                 {formatCurrency(summary?.total_staff_incentives)}
               </div>
-              <div className="text-xs text-gray-400 dark:text-slate-500 mt-1">Field harvester commissions</div>
+              <div className="text-xs text-gray-400 dark:text-slate-500 mt-1">All staff & employee pool</div>
+            </div>
+
+            {/* GARTECH Net Revenue */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">GARTECH Net ({settings.gartech_net_percentage || 70}%)</span>
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
+                {formatCurrency(summary?.total_gartech_net)}
+              </div>
+              <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">Retained operating net</div>
             </div>
 
             {/* Fleet Status Card */}
@@ -375,7 +389,7 @@ export const DashboardPage: React.FC = () => {
                 {summary?.active_vendos || 0} / {summary?.total_vendos || 0}
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                Operational vendo machines
+                Operational machines
               </div>
             </div>
           </div>
@@ -417,7 +431,7 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-base font-bold text-navy-900">Monthly Revenue Comparison</h2>
-                  <p className="text-xs text-gray-400">Gross Harvest vs. GARTECH Net Share (70%)</p>
+                  <p className="text-xs text-gray-400">Gross Harvest vs. GARTECH Net Share ({settings.gartech_net_percentage}%)</p>
                 </div>
               </div>
               <div className="h-64">
@@ -432,7 +446,7 @@ export const DashboardPage: React.FC = () => {
                     />
                     <Legend wrapperStyle={{ fontSize: '12px' }} />
                     <Bar dataKey="value" name="Gross Harvest" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="secondary_value" name="GARTECH Net (70%)" fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="secondary_value" name={`GARTECH Net (${settings.gartech_net_percentage}%)`} fill="#10B981" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

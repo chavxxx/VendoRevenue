@@ -31,9 +31,10 @@ export const SettingsPage: React.FC = () => {
   const [defaultProvince, setDefaultProvince] = useState(settings.default_province || 'Bukidnon');
   const [currencySymbol, setCurrencySymbol] = useState(settings.currency_symbol || '₱');
 
-  // Revenue Splits (No Partner)
+  // Revenue Splits (Partner Share, All Staff Incentive Pool, Company Net Share)
+  const [partnerPct, setPartnerPct] = useState<string>(settings.partner_share_percentage?.toString() || '25.00');
   const [staffPct, setStaffPct] = useState<string>(settings.staff_incentive_percentage?.toString() || '5.00');
-  const [gartechPct, setGartechPct] = useState<string>(settings.gartech_net_percentage?.toString() || '95.00');
+  const [gartechPct, setGartechPct] = useState<string>(settings.gartech_net_percentage?.toString() || '70.00');
   
   // Status flags
   const [savingSettings, setSavingSettings] = useState(false);
@@ -67,8 +68,9 @@ export const SettingsPage: React.FC = () => {
       setDefaultCity(settings.default_city || 'Valencia');
       setDefaultProvince(settings.default_province || 'Bukidnon');
       setCurrencySymbol(settings.currency_symbol || '₱');
+      setPartnerPct(settings.partner_share_percentage?.toString() || '25.00');
       setStaffPct(settings.staff_incentive_percentage?.toString() || '5.00');
-      setGartechPct(settings.gartech_net_percentage?.toString() || '95.00');
+      setGartechPct(settings.gartech_net_percentage?.toString() || '70.00');
     }
   }, [settings]);
 
@@ -107,8 +109,14 @@ export const SettingsPage: React.FC = () => {
     setSavingSettings(true);
     setSettingsSavedMsg(null);
     try {
+      const p = parseFloat(partnerPct) || 0;
       const s = parseFloat(staffPct) || 0;
-      const g = 100 - s;
+      const g = 100 - p - s;
+      if (g < 0) {
+        alert("Partner Share % + Staff Incentive % cannot exceed 100%.");
+        setSavingSettings(false);
+        return;
+      }
       await api.updateSystemSettings({
         company_name: companyName,
         company_tagline: companyTagline,
@@ -118,11 +126,12 @@ export const SettingsPage: React.FC = () => {
         default_city: defaultCity,
         default_province: defaultProvince,
         currency_symbol: currencySymbol,
+        partner_share_percentage: p,
         staff_incentive_percentage: s,
         gartech_net_percentage: g
       });
       await refreshSettings();
-      setSettingsSavedMsg('Company details & settings saved successfully!');
+      setSettingsSavedMsg('Company details & revenue distribution saved successfully!');
       setTimeout(() => setSettingsSavedMsg(null), 4000);
       loadAuditLogs();
     } catch (err: any) {
@@ -389,20 +398,41 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 4. Revenue Distribution Configuration (No Partner) */}
+            {/* 4. Revenue Distribution Configuration (Partner, Staff Pool, GARTECH Net) */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center space-x-2 text-navy-900 dark:text-white border-b border-gray-100 dark:border-slate-800 pb-3">
                 <Percent className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <h2 className="text-base font-bold">Revenue Distribution Configuration</h2>
               </div>
               <p className="text-xs text-gray-500 dark:text-slate-400">
-                100% Company-Owned Vendos (0% Partner Share). Collections are split between Field Harvester Incentive and GARTECH Net.
+                Configure default percentage allocations across Location Partners, Staff & Harvester Incentive Pool, and GARTECH Net Operating Share.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-blue-700 dark:text-blue-400 mb-1">
+                    Location Partner Share (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    required
+                    value={partnerPct}
+                    onChange={(e) => {
+                      setPartnerPct(e.target.value);
+                      const p = parseFloat(e.target.value) || 0;
+                      const s = parseFloat(staffPct) || 0;
+                      setGartechPct(Math.max(0, 100 - p - s).toFixed(2));
+                    }}
+                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
                 <div>
                   <label className="block font-semibold text-amber-700 dark:text-amber-400 mb-1">
-                    Staff Harvester Incentive (%)
+                    Staff & Employee Pool (%)
                   </label>
                   <input
                     type="number"
@@ -413,8 +443,9 @@ export const SettingsPage: React.FC = () => {
                     value={staffPct}
                     onChange={(e) => {
                       setStaffPct(e.target.value);
+                      const p = parseFloat(partnerPct) || 0;
                       const s = parseFloat(e.target.value) || 0;
-                      setGartechPct((100 - s).toFixed(2));
+                      setGartechPct(Math.max(0, 100 - p - s).toFixed(2));
                     }}
                     className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-xl px-3.5 py-2.5 text-sm font-bold focus:outline-none focus:border-emerald-500 font-mono"
                   />
@@ -422,7 +453,7 @@ export const SettingsPage: React.FC = () => {
 
                 <div>
                   <label className="block font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
-                    GARTECH Net Share (%) – Auto-Balanced
+                    GARTECH Net (%) – Remainder
                   </label>
                   <input
                     type="number"
@@ -435,7 +466,7 @@ export const SettingsPage: React.FC = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-xs text-emerald-900 dark:text-emerald-300 font-mono">
-                Distribution: <strong>Harvester {staffPct}%</strong> + <strong>GARTECH Net {gartechPct}%</strong> = <strong>100.00%</strong>
+                Distribution: <strong>Partner {partnerPct}%</strong> + <strong>Staff Pool {staffPct}%</strong> + <strong>GARTECH Net {gartechPct}%</strong> = <strong>100.00%</strong>
               </div>
             </div>
 

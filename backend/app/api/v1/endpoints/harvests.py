@@ -3,7 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, and_, or_
-from datetime import date, datetime, timezone
+from datetime import date, datetime
+import zoneinfo
 from decimal import Decimal
 from app.core.database import get_db
 from app.core.config import settings
@@ -23,6 +24,8 @@ from app.services.audit_service import log_action
 
 router = APIRouter()
 
+PST_TZ = zoneinfo.ZoneInfo("Asia/Manila")
+
 def get_active_revenue_config(db: Session, vendo: Optional[VendoMachine] = None):
     sys_setting = db.query(SystemSetting).first()
     if sys_setting:
@@ -40,12 +43,10 @@ def get_active_revenue_config(db: Session, vendo: Optional[VendoMachine] = None)
             s_pct = Decimal("5.00")
             g_pct = Decimal("70.00")
 
+    # If vendo has a specific partner with custom share percentage
     if vendo and vendo.partner and vendo.partner.default_share_percentage is not None:
         p_pct = to_decimal(vendo.partner.default_share_percentage)
         g_pct = Decimal("100.00") - p_pct - s_pct
-    elif vendo and not vendo.partner_id:
-        p_pct = Decimal("0.00")
-        g_pct = Decimal("100.00") - s_pct
 
     return p_pct, s_pct, g_pct
 
@@ -186,7 +187,7 @@ def encode_harvest(
         raise HTTPException(status_code=400, detail=f"Selected harvester (ID {payload.harvester_id}) does not exist")
     harvester_id = harvester.id
 
-    # Server-side revenue calculation
+    # Server-side revenue calculation based on active configuration (or vendo partner share)
     p_pct, s_pct, g_pct = get_active_revenue_config(db, vendo)
 
     distribution = compute_revenue_distribution(
@@ -198,7 +199,6 @@ def encode_harvest(
     
     transaction_ref = generate_transaction_ref(db, payload.harvest_date)
     
-    # Final workflow: select date, select vendo, input income then submit. Immediately APPROVED.
     harvest = HarvestTransaction(
         transaction_ref=transaction_ref,
         vendo_id=vendo.id,
@@ -218,7 +218,7 @@ def encode_harvest(
         status=HarvestStatus.APPROVED,
         remarks=payload.remarks,
         approved_by_user_id=current_user.id,
-        approved_at=datetime.now(timezone.utc)
+        approved_at=datetime.now(PST_TZ)
     )
     db.add(harvest)
     db.commit()
@@ -249,58 +249,15 @@ def approve_harvest(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
-    harvest = db.query(HarvestTransaction).filter(HarvestTransaction.id == id).first()
-    if not harvest:
+    t = db.query(HarvestTransaction).filter(HarvestTransaction.id == id).first()
+    if not t:
         raise HTTPException(status_code=404, detail="Harvest transaction not found")
-    if harvest.status == HarvestStatus.APPROVED:
-        raise HTTPException(status_code=400, detail="Transaction is already approved")
-    if harvest.status == HarvestStatus.VOIDED:
-        raise HTTPException(status_code=400, detail="Cannot approve a voided transaction")
-        
-    harvest.status = HarvestStatus.APPROVED
-    harvest.approved_by_user_id = current_user.id
-    harvest.approved_at = datetime.now(timezone.utc)
-    harvest.rejection_reason = None
+    t.status = HarvestStatus.APPROVED
+    t.approved_by_user_id = current_user.id
+    t.approved_at = datetime.now(PST_TZ)
     db.commit()
-    db.refresh(harvest)
-    
-    log_action(
-        db,
-        action="APPROVE_HARVEST",
-        entity_type="HARVEST",
-        entity_id=harvest.transaction_ref,
-        user_id=current_user.id,
-        new_values={"status": "APPROVED"}
-    )
-    return serialize_harvest(harvest)
-
-@router.post("/{id}/reject", response_model=HarvestResponse)
-def reject_harvest(
-    id: int,
-    payload: HarvestApprovalRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
-):
-    harvest = db.query(HarvestTransaction).filter(HarvestTransaction.id == id).first()
-    if not harvest:
-        raise HTTPException(status_code=404, detail="Harvest transaction not found")
-    if harvest.status == HarvestStatus.VOIDED:
-        raise HTTPException(status_code=400, detail="Cannot reject a voided transaction")
-        
-    harvest.status = HarvestStatus.REJECTED
-    harvest.rejection_reason = payload.reason
-    db.commit()
-    db.refresh(harvest)
-    
-    log_action(
-        db,
-        action="REJECT_HARVEST",
-        entity_type="HARVEST",
-        entity_id=harvest.transaction_ref,
-        user_id=current_user.id,
-        new_values={"status": "REJECTED", "reason": payload.reason}
-    )
-    return serialize_harvest(harvest)
+    db.refresh(t)
+    return serialize_harvest(t)
 
 @router.post("/{id}/void", response_model=HarvestResponse)
 def void_harvest(
@@ -309,28 +266,11 @@ def void_harvest(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN]))
 ):
-    harvest = db.query(HarvestTransaction).filter(HarvestTransaction.id == id).first()
-    if not harvest:
+    t = db.query(HarvestTransaction).filter(HarvestTransaction.id == id).first()
+    if not t:
         raise HTTPException(status_code=404, detail="Harvest transaction not found")
-        
-    if harvest.status == HarvestStatus.VOIDED:
-        raise HTTPException(status_code=400, detail="Transaction is already voided")
-        
-    old_status = harvest.status.value
-    harvest.status = HarvestStatus.VOIDED
-    harvest.void_reason = payload.void_reason
-    
+    t.status = HarvestStatus.VOIDED
+    t.void_reason = payload.void_reason
     db.commit()
-    db.refresh(harvest)
-    
-    log_action(
-        db,
-        action="VOID_HARVEST",
-        entity_type="HARVEST",
-        entity_id=harvest.transaction_ref,
-        user_id=current_user.id,
-        old_values={"status": old_status},
-        new_values={"status": "VOIDED", "reason": payload.void_reason}
-    )
-    
-    return serialize_harvest(harvest)
+    db.refresh(t)
+    return serialize_harvest(t)

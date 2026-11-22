@@ -1,11 +1,17 @@
-from datetime import datetime, timezone
+from datetime import datetime
 import enum
+import zoneinfo
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Date, Numeric, 
     ForeignKey, Text, Enum, Float, UniqueConstraint, Index
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+PST_TZ = zoneinfo.ZoneInfo("Asia/Manila")
+
+def now_pst():
+    return datetime.now(PST_TZ)
 
 class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
@@ -36,8 +42,8 @@ class User(Base):
     role = Column(Enum(UserRole), nullable=False, default=UserRole.STAFF_ENCODER)
     is_active = Column(Boolean, default=True, nullable=False)
     staff_id = Column(Integer, ForeignKey("staff.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_pst)
+    updated_at = Column(DateTime, default=now_pst, onupdate=now_pst)
 
     staff = relationship("Staff", back_populates="user", foreign_keys=[staff_id])
 
@@ -59,8 +65,8 @@ class Partner(Base):
     bank_account_number = Column(String(50), nullable=True)
     gcash_number = Column(String(25), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_pst)
+    updated_at = Column(DateTime, default=now_pst, onupdate=now_pst)
 
     vendos = relationship("VendoMachine", back_populates="partner")
     harvests = relationship("HarvestTransaction", back_populates="partner")
@@ -76,8 +82,8 @@ class Staff(Base):
     role_type = Column(String(50), default="FIELD_HARVESTER", nullable=False)
     default_incentive_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_pst)
+    updated_at = Column(DateTime, default=now_pst, onupdate=now_pst)
 
     user = relationship("User", back_populates="staff", uselist=False, foreign_keys="User.staff_id")
     assigned_vendos = relationship("VendoMachine", back_populates="assigned_harvester", foreign_keys="VendoMachine.assigned_harvester_id")
@@ -100,8 +106,8 @@ class VendoMachine(Base):
     installation_date = Column(Date, nullable=False)
     status = Column(Enum(VendoStatus), default=VendoStatus.ACTIVE, nullable=False, index=True)
     remarks = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_pst)
+    updated_at = Column(DateTime, default=now_pst, onupdate=now_pst)
 
     partner = relationship("Partner", back_populates="vendos")
     assigned_staff = relationship("Staff", foreign_keys=[assigned_staff_id])
@@ -124,7 +130,7 @@ class SystemSetting(Base):
     partner_share_percentage = Column(Numeric(5, 2), default=25.00, nullable=False)
     staff_incentive_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)
     gartech_net_percentage = Column(Numeric(5, 2), default=70.00, nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=now_pst, onupdate=now_pst)
 
 class RevenueShareConfiguration(Base):
     __tablename__ = "revenue_share_configurations"
@@ -136,7 +142,7 @@ class RevenueShareConfiguration(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     effective_date = Column(Date, nullable=False)
     updated_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_pst)
 
 class HarvestTransaction(Base):
     __tablename__ = "harvest_transactions"
@@ -153,11 +159,11 @@ class HarvestTransaction(Base):
     harvest_period = Column(String(7), nullable=False, index=True)
     
     gross_harvest = Column(Numeric(12, 2), nullable=False)
-    partner_percentage = Column(Numeric(5, 2), default=0.00, nullable=False)
+    partner_percentage = Column(Numeric(5, 2), default=25.00, nullable=False)
     partner_share = Column(Numeric(12, 2), default=0.00, nullable=False)
     staff_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)
     staff_incentive = Column(Numeric(12, 2), nullable=False)
-    gartech_percentage = Column(Numeric(5, 2), default=95.00, nullable=False)
+    gartech_percentage = Column(Numeric(5, 2), default=70.00, nullable=False)
     gartech_net = Column(Numeric(12, 2), nullable=False)
     
     status = Column(Enum(HarvestStatus), default=HarvestStatus.APPROVED, nullable=False, index=True)
@@ -168,8 +174,8 @@ class HarvestTransaction(Base):
     approved_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_pst)
+    updated_at = Column(DateTime, default=now_pst, onupdate=now_pst)
 
     __table_args__ = (
         Index("idx_vlan_harvest_period", "vlan_id", "harvest_period"),
@@ -193,6 +199,6 @@ class AuditLog(Base):
     new_values = Column(Text, nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=now_pst, index=True)
 
     user = relationship("User")

@@ -9,7 +9,6 @@ import { DashboardPage } from './pages/admin/DashboardPage';
 import { VendosPage } from './pages/admin/VendosPage';
 import { HarvestEncodingPage } from './pages/encoder/HarvestEncodingPage';
 import { HarvestsPage } from './pages/admin/HarvestsPage';
-import { PartnersPage } from './pages/admin/PartnersPage';
 import { StaffPage } from './pages/admin/StaffPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
@@ -53,8 +52,6 @@ const AppContent: React.FC = () => {
         return <HarvestEncodingPage />;
       case 'harvests':
         return <HarvestsPage />;
-      case 'partners':
-        return isAdmin ? <PartnersPage /> : <DashboardPage />;
       case 'reports':
         return <ReportsPage />;
       case 'staff':

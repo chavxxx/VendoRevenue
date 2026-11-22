@@ -193,6 +193,7 @@ export const HarvestsPage: React.FC = () => {
                 <th className="py-3 px-4">Machine</th>
                 <th className="py-3 px-4">Harvester</th>
                 <th className="py-3 px-4 text-right">Gross</th>
+                <th className="py-3 px-4 text-right">Partner</th>
                 <th className="py-3 px-4 text-right">Incentive</th>
                 <th className="py-3 px-4 text-right">GARTECH Net</th>
                 <th className="py-3 px-4">Status</th>
@@ -219,6 +220,7 @@ export const HarvestsPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-gray-600 dark:text-slate-400 font-medium">{t.harvester_name || '–'}</td>
                     <td className="py-3 px-4 text-right font-bold text-navy-900 dark:text-white">{formatCurrency(t.gross_harvest)}</td>
+                    <td className="py-3 px-4 text-right font-medium text-blue-600 dark:text-blue-400">{formatCurrency(t.partner_share)}</td>
                     <td className="py-3 px-4 text-right font-medium text-amber-600 dark:text-amber-400">{formatCurrency(t.staff_incentive)}</td>
                     <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(t.gartech_net)}</td>
                     <td className="py-3 px-4">{getStatusBadge(t.status)}</td>
@@ -305,14 +307,20 @@ export const HarvestsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Financial Card (100% Company-Owned) */}
+            {/* Financial Card */}
             <div className="bg-slate-950 text-white p-4 rounded-xl space-y-2 text-xs border border-slate-800">
               <div className="flex justify-between items-center text-sm font-bold border-b border-slate-800 pb-2">
                 <span>Gross Coin Harvest</span>
                 <span className="text-emerald-400">{formatCurrency(selectedTxn.gross_harvest)}</span>
               </div>
+              {selectedTxn.partner_share && Number(selectedTxn.partner_share) > 0 ? (
+                <div className="flex justify-between items-center text-blue-400">
+                  <span>Location Partner Share ({selectedTxn.partner_percentage}%)</span>
+                  <span>{formatCurrency(selectedTxn.partner_share)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between items-center text-amber-400">
-                <span>Staff Harvester Incentive ({selectedTxn.staff_percentage}%)</span>
+                <span>Staff Incentive Pool ({selectedTxn.staff_percentage}%)</span>
                 <span>{formatCurrency(selectedTxn.staff_incentive)}</span>
               </div>
               <div className="flex justify-between items-center text-emerald-400 font-bold pt-1 border-t border-slate-800">
