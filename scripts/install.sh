@@ -130,6 +130,17 @@ else
     systemctl start docker 2>/dev/null || true
 fi
 
+# Ensure Docker Daemon has reliable DNS to prevent registry connection drops
+if [ ! -f /etc/docker/daemon.json ]; then
+    mkdir -p /etc/docker
+    cat << "EOF" > /etc/docker/daemon.json
+{
+  "dns": ["8.8.8.8", "1.1.1.1"]
+}
+EOF
+    systemctl restart docker 2>/dev/null || true
+fi
+
 # Ensure docker compose is available
 if ! docker compose version &> /dev/null; then
     if command -v apt-get &> /dev/null; then
@@ -200,13 +211,57 @@ else
     echo -e "${YELLOW}[NOTE] No active UFW/Firewalld detected. Ensure ports 80 and 443 are allowed.${NC}"
 fi
 
-# Step 7: Build & Launch Docker Container Stack
-echo -e "\n${GREEN}${BOLD}[7/8] Building & launching GARTECH container stack...${NC}"
+# Step 7: Build & Launch Docker Container Stack with Resilient Pre-Pulling & Retry Loops
+echo -e "\n${GREEN}${BOLD}[7/8] Preparing and building Docker container stack...${NC}"
 echo -e "       (Services: PostgreSQL 16, FastAPI Backend, React Frontend, Nginx Gateway)"
 cd "${INSTALL_DIR}/docker"
 
 docker compose down 2>/dev/null || true
-docker compose build --pull
+
+# Helper function to pull base images with retry to prevent Docker Hub connection reset drops
+pull_image_with_retry() {
+    local img="$1"
+    local attempt=1
+    local max_attempts=5
+    while [ $attempt -le $max_attempts ]; do
+        echo -e "  Pre-fetching ${BOLD}${img}${NC} (Attempt ${attempt}/${max_attempts})..."
+        if docker pull "$img" > /dev/null 2>&1; then
+            echo -e "  ${GREEN}✓ Successfully cached ${img}${NC}"
+            return 0
+        fi
+        echo -e "  ${YELLOW}Connection reset / retry in 3s...${NC}"
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    echo -e "  ${YELLOW}Notice: Could not pre-cache ${img}, BuildKit will download during build.${NC}"
+    return 0
+}
+
+echo -e "Caching base images sequentially to prevent Docker Hub socket resets:"
+pull_image_with_retry "postgres:16-alpine"
+pull_image_with_retry "python:3.11-slim"
+pull_image_with_retry "node:22-alpine"
+pull_image_with_retry "nginx:alpine"
+
+# Build containers with automated retry
+BUILD_OK=false
+for attempt in 1 2 3 4; do
+    echo -e "\nBuilding application containers (Attempt ${attempt}/4)..."
+    if docker compose build; then
+        BUILD_OK=true
+        break
+    fi
+    echo -e "${YELLOW}Build encountered a network error. Retrying in 4 seconds...${NC}"
+    sleep 4
+done
+
+if [ "$BUILD_OK" != true ]; then
+    echo -e "${RED}[ERROR] Docker build failed after 4 attempts.${NC}"
+    echo -e "Please check your network connection or Docker DNS and try again."
+    exit 1
+fi
+
+echo -e "\nLaunching Docker services..."
 docker compose up -d
 
 # Step 8: Health Check & Verification
