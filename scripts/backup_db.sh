@@ -4,7 +4,9 @@
 
 set -e
 
-BACKUP_DIR="${BACKUP_DIR:-/Users/chavxxx/Documents/GARTECH/backups}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BACKUP_DIR="${BACKUP_DIR:-${APP_DIR}/backups}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_FILE="${BACKUP_DIR}/gartech_db_backup_${TIMESTAMP}.sql"
 GZ_FILE="${BACKUP_FILE}.gz"

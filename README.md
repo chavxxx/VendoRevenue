@@ -3,6 +3,31 @@
 
 ---
 
+## ⚡ 1-Liner Terminal Installer (Production)
+
+To install the entire platform on a clean **Ubuntu 20.04/22.04/24.04**, **Debian 11/12**, or **Proxmox VM/LXC**, run this single command in your terminal as `root` (or with `sudo`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/chavxxx/VendoRevenue/main/scripts/install.sh | sudo bash
+```
+
+*Or via wget:*
+```bash
+wget -qO- https://raw.githubusercontent.com/chavxxx/VendoRevenue/main/scripts/install.sh | sudo bash
+```
+
+### What this 1-liner automatically does:
+1. Installs all required OS packages (`curl`, `wget`, `git`, `gnupg`, `ufw`, `openssl`, `jq`, `net-tools`, `cron`).
+2. Installs the official **Docker Engine CE** and **Docker Compose Plugin**.
+3. Clones the repository to `/opt/gartech`.
+4. Auto-generates cryptographically secure production secrets in `.env`.
+5. Prepares persistent storage directories for uploads and automated daily database backups.
+6. Opens necessary firewall ports (`80/HTTP`, `443/HTTPS`, `22/SSH`).
+7. Builds and boots the multi-container stack (**PostgreSQL 16**, **FastAPI Backend**, **React 18 Frontend**, **Nginx Gateway**).
+8. Performs automated healthcheck verification and configures daily database backup cron jobs at 2:00 AM.
+
+---
+
 ## 🌟 Executive Summary
 
 **GARTECH VENDO** is a comprehensive, production-ready operational and financial management application built to manage hundreds of WiFi vendo machines distributed across various locations. Each machine generates coin revenue that is harvested once a month by assigned field personnel, divided between GARTECH (70%), the location partner (25%), and the staff member performing the harvesting (5%).
