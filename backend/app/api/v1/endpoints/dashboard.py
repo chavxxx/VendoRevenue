@@ -63,10 +63,11 @@ def get_dashboard_summary(
     total_vendos = vendo_query.count()
     active_vendos = vendo_query.filter(VendoMachine.status == VendoStatus.ACTIVE).count()
     inactive_vendos = total_vendos - active_vendos
-    total_partners = 0
+    total_partners = db.query(Partner).filter(Partner.is_active == True).count()
     
     txn_query = db.query(
         func.coalesce(func.sum(HarvestTransaction.gross_harvest), Decimal("0.00")).label("gross"),
+        func.coalesce(func.sum(HarvestTransaction.partner_share), Decimal("0.00")).label("partner_share"),
         func.coalesce(func.sum(HarvestTransaction.staff_incentive), Decimal("0.00")).label("staff_incentive"),
         func.coalesce(func.sum(HarvestTransaction.gartech_net), Decimal("0.00")).label("gartech_net")
     ).filter(HarvestTransaction.status == HarvestStatus.APPROVED)
@@ -88,9 +89,9 @@ def get_dashboard_summary(
         total_vendos=total_vendos,
         active_vendos=active_vendos,
         inactive_vendos=inactive_vendos,
-        total_partners=0,
+        total_partners=total_partners,
         total_gross_harvest=financials.gross or Decimal("0.00"),
-        total_partner_shares=Decimal("0.00"),
+        total_partner_shares=financials.partner_share or Decimal("0.00"),
         total_staff_incentives=financials.staff_incentive or Decimal("0.00"),
         total_gartech_net=financials.gartech_net or Decimal("0.00")
     )
@@ -198,8 +199,30 @@ def get_top_partners(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
-    # Partners removed; returns empty list
-    return []
+    results = (
+        db.query(
+            Partner.id,
+            Partner.name,
+            Partner.city,
+            func.coalesce(func.sum(HarvestTransaction.partner_share), Decimal("0.00")).label("total_share"),
+            func.count(HarvestTransaction.id).label("txn_count")
+        )
+        .join(HarvestTransaction, Partner.id == HarvestTransaction.partner_id)
+        .filter(HarvestTransaction.status == HarvestStatus.APPROVED)
+        .group_by(Partner.id, Partner.name, Partner.city)
+        .order_by(desc("total_share"))
+        .limit(limit)
+        .all()
+    )
+    return [
+        TopEntityItem(
+            id=r.id,
+            name=r.name,
+            subtitle=f"{r.city} • {r.txn_count} collections",
+            total_revenue=r.total_share,
+            count=r.txn_count
+        ) for r in results
+    ]
 
 @router.get("/charts/locations", response_model=List[LocationPerformanceItem])
 def get_location_performance(

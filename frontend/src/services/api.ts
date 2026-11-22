@@ -81,6 +81,15 @@ export const api = {
   updateSystemSettings: (data: any) => apiRequest('/users/system/settings', { method: 'PUT', body: JSON.stringify(data) }),
   uploadLogo: (formData: FormData) => apiRequest('/users/system/settings/logo', { method: 'POST', body: formData }),
 
+  // Partners (Location Partners)
+  getPartners: (params: Record<string, any> = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiRequest(`/partners/?${query}`);
+  },
+  getPartnerDetail: (id: number) => apiRequest(`/partners/${id}`),
+  createPartner: (data: any) => apiRequest('/partners/', { method: 'POST', body: JSON.stringify(data) }),
+  updatePartner: (id: number, data: any) => apiRequest(`/partners/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
   // Staff / Harvesters
   getStaff: (params: Record<string, any> = {}) => {
     const query = new URLSearchParams(params).toString();

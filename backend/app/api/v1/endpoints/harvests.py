@@ -23,18 +23,31 @@ from app.services.audit_service import log_action
 
 router = APIRouter()
 
-def get_active_revenue_config(db: Session):
+def get_active_revenue_config(db: Session, vendo: Optional[VendoMachine] = None):
     sys_setting = db.query(SystemSetting).first()
     if sys_setting:
-        return Decimal("0.00"), sys_setting.staff_incentive_percentage, sys_setting.gartech_net_percentage
-    config = db.query(RevenueShareConfiguration).filter(RevenueShareConfiguration.is_active == True).first()
-    if config:
-        return Decimal("0.00"), config.staff_incentive_percentage, config.gartech_net_percentage
-    return (
-        Decimal("0.00"),
-        Decimal(str(settings.DEFAULT_STAFF_PERCENTAGE)),
-        Decimal("95.00")
-    )
+        p_pct = sys_setting.partner_share_percentage
+        s_pct = sys_setting.staff_incentive_percentage
+        g_pct = sys_setting.gartech_net_percentage
+    else:
+        config = db.query(RevenueShareConfiguration).filter(RevenueShareConfiguration.is_active == True).first()
+        if config:
+            p_pct = config.partner_percentage
+            s_pct = config.staff_incentive_percentage
+            g_pct = config.gartech_net_percentage
+        else:
+            p_pct = Decimal("25.00")
+            s_pct = Decimal("5.00")
+            g_pct = Decimal("70.00")
+
+    if vendo and vendo.partner and vendo.partner.default_share_percentage is not None:
+        p_pct = to_decimal(vendo.partner.default_share_percentage)
+        g_pct = Decimal("100.00") - p_pct - s_pct
+    elif vendo and not vendo.partner_id:
+        p_pct = Decimal("0.00")
+        g_pct = Decimal("100.00") - s_pct
+
+    return p_pct, s_pct, g_pct
 
 def generate_transaction_ref(db: Session, harvest_date: date) -> str:
     date_str = harvest_date.strftime("%Y%m%d")
@@ -61,8 +74,8 @@ def serialize_harvest(t: HarvestTransaction) -> HarvestResponse:
         vendo_id=t.vendo_id,
         vlan_id=t.vlan_id,
         vendo_name=t.vendo.vendo_name if t.vendo else None,
-        partner_id=None,
-        partner_name=None,
+        partner_id=t.partner_id,
+        partner_name=t.partner.name if t.partner else (t.vendo.partner.name if t.vendo and t.vendo.partner else None),
         harvester_id=t.harvester_id,
         harvester_name=t.harvester.full_name if t.harvester else None,
         encoded_by_user_id=t.encoded_by_user_id,
@@ -70,8 +83,8 @@ def serialize_harvest(t: HarvestTransaction) -> HarvestResponse:
         harvest_date=t.harvest_date,
         harvest_period=t.harvest_period,
         gross_harvest=t.gross_harvest,
-        partner_percentage=Decimal("0.00"),
-        partner_share=Decimal("0.00"),
+        partner_percentage=t.partner_percentage,
+        partner_share=t.partner_share,
         staff_percentage=t.staff_percentage,
         staff_incentive=t.staff_incentive,
         gartech_percentage=t.gartech_percentage,
@@ -93,15 +106,18 @@ def preview_harvest_computation(
     current_user: User = Depends(get_current_user)
 ):
     gross = payload.get("gross_harvest", 0)
-    _, s_pct, g_pct = get_active_revenue_config(db)
-    p_pct = Decimal("0.00")
+    vlan_id = payload.get("vlan_id")
+    vendo = None
+    if vlan_id:
+        vendo = db.query(VendoMachine).filter(VendoMachine.vlan_id == vlan_id).first()
+
+    p_pct, s_pct, g_pct = get_active_revenue_config(db, vendo)
     
+    if "partner_percentage" in payload and payload["partner_percentage"] is not None:
+        p_pct = to_decimal(payload["partner_percentage"])
     if "staff_percentage" in payload and payload["staff_percentage"] is not None:
         s_pct = to_decimal(payload["staff_percentage"])
-        g_pct = Decimal("100.00") - s_pct
-
-    distribution = compute_revenue_distribution(gross, p_pct, s_pct, g_pct)
-    return HarvestCalculationPreview(**distribution)
+    g_pct = Decimal("100.00") - p_pct - s_pct
 
     distribution = compute_revenue_distribution(gross, p_pct, s_pct, g_pct)
     return HarvestCalculationPreview(**distribution)
@@ -170,9 +186,8 @@ def encode_harvest(
         raise HTTPException(status_code=400, detail=f"Selected harvester (ID {payload.harvester_id}) does not exist")
     harvester_id = harvester.id
 
-    # Server-side revenue calculation (strict decimal exactness: 0% partner, 5% staff, 95% gartech)
-    _, s_pct, g_pct = get_active_revenue_config(db)
-    p_pct = Decimal("0.00")
+    # Server-side revenue calculation
+    p_pct, s_pct, g_pct = get_active_revenue_config(db, vendo)
 
     distribution = compute_revenue_distribution(
         gross_harvest=payload.gross_harvest,
@@ -188,14 +203,14 @@ def encode_harvest(
         transaction_ref=transaction_ref,
         vendo_id=vendo.id,
         vlan_id=vendo.vlan_id,
-        partner_id=None,
+        partner_id=vendo.partner_id,
         harvester_id=harvester_id,
         encoded_by_user_id=current_user.id,
         harvest_date=payload.harvest_date,
         harvest_period=harvest_period,
         gross_harvest=distribution["gross_harvest"],
-        partner_percentage=Decimal("0.00"),
-        partner_share=Decimal("0.00"),
+        partner_percentage=distribution["partner_percentage"],
+        partner_share=distribution["partner_share"],
         staff_percentage=distribution["staff_percentage"],
         staff_incentive=distribution["staff_incentive"],
         gartech_percentage=distribution["gartech_percentage"],

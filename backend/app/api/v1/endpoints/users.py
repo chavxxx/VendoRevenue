@@ -385,6 +385,10 @@ def clean_database(
     elif target == "all":
         h_count = db.query(HarvestTransaction).delete()
         v_count = db.query(VendoMachine).delete()
+        p_count = db.query(Partner).delete()
+        # Unlink users from staff before wiping staff
+        db.query(User).update({User.staff_id: None})
+        s_count = db.query(Staff).delete()
         db.commit()
         log_action(
             db,
@@ -392,13 +396,15 @@ def clean_database(
             entity_type="SYSTEM",
             entity_id="ALL_DATA",
             user_id=current_user.id,
-            new_values={"vendos_removed": v_count, "harvests_removed": h_count}
+            new_values={"vendos_removed": v_count, "harvests_removed": h_count, "partners_removed": p_count, "staff_removed": s_count}
         )
         return {
             "status": "SUCCESS",
-            "message": f"Database completely reset. Wiped {v_count} vendos and {h_count} harvests.",
+            "message": f"Database completely reset to clean state. Removed {v_count} vendos, {h_count} harvests, {p_count} partners, and {s_count} staff/harvesters. Only admin and encoder user accounts preserved.",
             "vendos_removed": v_count,
-            "harvests_removed": h_count
+            "harvests_removed": h_count,
+            "partners_removed": p_count,
+            "staff_removed": s_count
         }
     else:
         raise HTTPException(status_code=400, detail="Invalid target. Use 'harvests', 'vendos', or 'all'.")

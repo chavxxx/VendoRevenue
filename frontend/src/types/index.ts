@@ -4,7 +4,28 @@ export type VendoStatus = 'ACTIVE' | 'INACTIVE' | 'UNDER_MAINTENANCE' | 'REMOVED
 
 export type HarvestStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'VOIDED';
 
-export type ReportScope = 'all' | 'individual_harvester' | 'group_location';
+export type ReportScope = 'all' | 'individual_harvester' | 'individual_partner' | 'group_location';
+
+export interface Partner {
+  id: number;
+  partner_code: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address: string;
+  city: string;
+  province: string;
+  default_share_percentage: number;
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_account_number?: string;
+  gcash_number?: string;
+  is_active: boolean;
+  vendos_count?: number;
+  total_earnings?: number;
+  created_at: string;
+}
 
 export interface SystemSetting {
   id: number;
@@ -17,6 +38,7 @@ export interface SystemSetting {
   default_province: string;
   currency_symbol: string;
   logo_url: string;
+  partner_share_percentage: number;
   staff_incentive_percentage: number;
   gartech_net_percentage: number;
   updated_at?: string;

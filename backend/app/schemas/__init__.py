@@ -130,8 +130,9 @@ class SystemSettingBase(BaseModel):
     default_province: str = "Bukidnon"
     currency_symbol: str = "₱"
     logo_url: str = "/logo.jpg"
+    partner_share_percentage: Decimal = Decimal("25.00")
     staff_incentive_percentage: Decimal = Decimal("5.00")
-    gartech_net_percentage: Decimal = Decimal("95.00")
+    gartech_net_percentage: Decimal = Decimal("70.00")
 
 class SystemSettingUpdate(BaseModel):
     company_name: Optional[str] = None
@@ -142,6 +143,7 @@ class SystemSettingUpdate(BaseModel):
     default_city: Optional[str] = None
     default_province: Optional[str] = None
     currency_symbol: Optional[str] = None
+    partner_share_percentage: Optional[Decimal] = None
     staff_incentive_percentage: Optional[Decimal] = None
     gartech_net_percentage: Optional[Decimal] = None
 

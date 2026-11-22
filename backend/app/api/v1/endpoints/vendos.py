@@ -100,8 +100,8 @@ def list_vendos(
                 id=v.id,
                 vlan_id=v.vlan_id,
                 vendo_name=v.vendo_name,
-                partner_id=None,
-                partner_name=None,
+                partner_id=v.partner_id,
+                partner_name=v.partner.name if v.partner else None,
                 complete_address=v.complete_address,
                 city_municipality=v.city_municipality,
                 province=v.province,
@@ -116,7 +116,7 @@ def list_vendos(
                 created_at=v.created_at,
                 last_harvest_date=last_harvest.harvest_date if last_harvest else None,
                 last_gross_harvest=last_harvest.gross_harvest if last_harvest else None,
-                last_partner_share=Decimal("0.00") if last_harvest else None
+                last_partner_share=last_harvest.partner_share if last_harvest else None
             )
         )
     return results
@@ -172,8 +172,11 @@ def create_vendo(
         raise HTTPException(status_code=400, detail=f"VLAN ID {payload.vlan_id} already exists")
         
     vendo_data = payload.model_dump()
-    # Ensure partner_id is None
-    vendo_data["partner_id"] = None
+    if payload.partner_id:
+        partner = db.query(Partner).filter(Partner.id == payload.partner_id).first()
+        if not partner:
+            raise HTTPException(status_code=400, detail="Invalid partner_id")
+        vendo_data["partner_id"] = payload.partner_id
     
     # If city or province not provided, look up from system settings
     if not vendo_data.get("city_municipality") or not vendo_data.get("province"):
@@ -202,8 +205,8 @@ def create_vendo(
         id=vendo.id,
         vlan_id=vendo.vlan_id,
         vendo_name=vendo.vendo_name,
-        partner_id=None,
-        partner_name=None,
+        partner_id=vendo.partner_id,
+        partner_name=vendo.partner.name if vendo.partner else None,
         complete_address=vendo.complete_address,
         city_municipality=vendo.city_municipality,
         province=vendo.province,
@@ -256,8 +259,8 @@ def update_vendo(
         id=vendo.id,
         vlan_id=vendo.vlan_id,
         vendo_name=vendo.vendo_name,
-        partner_id=None,
-        partner_name=None,
+        partner_id=vendo.partner_id,
+        partner_name=vendo.partner.name if vendo.partner else None,
         complete_address=vendo.complete_address,
         city_municipality=vendo.city_municipality,
         province=vendo.province,

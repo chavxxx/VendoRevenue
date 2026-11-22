@@ -20,8 +20,9 @@ const defaultSettings: SystemSetting = {
   default_province: 'Bukidnon',
   currency_symbol: '₱',
   logo_url: '/logo.jpg',
+  partner_share_percentage: 25.0,
   staff_incentive_percentage: 5.0,
-  gartech_net_percentage: 95.0,
+  gartech_net_percentage: 70.0,
 };
 
 const SettingsContext = createContext<SettingsContextType>({

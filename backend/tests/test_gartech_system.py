@@ -81,16 +81,16 @@ def test_harvest_encoding_workflow_and_flexible_dates():
     assert h2_res.json()["gross_harvest"] == "7500.00"
     assert h2_res.json()["harvester_id"] == 3
 
-    # Preview calculation (0% partner, 5% staff, 95% gartech)
+    # Preview calculation with partners share (25% partner, 5% staff, 70% gartech)
     preview_res = client.post("/api/v1/harvests/preview", headers=headers, json={
         "gross_harvest": 15000.00
     })
     assert preview_res.status_code == 200
     preview = preview_res.json()
     assert preview["gross_harvest"] == "15000.00"
-    assert preview["partner_share"] == "0.00"
+    assert preview["partner_share"] == "3750.00"
     assert preview["staff_incentive"] == "750.00"
-    assert preview["gartech_net"] == "14250.00"
+    assert preview["gartech_net"] == "10500.00"
 
 def test_dashboard_all_harvesters_and_per_harvester():
     """Verify dashboard harvester performance endpoints."""

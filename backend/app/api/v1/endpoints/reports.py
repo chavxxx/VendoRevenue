@@ -33,6 +33,7 @@ def get_report_records(
         db.query(HarvestTransaction)
         .join(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)
         .outerjoin(Staff, HarvestTransaction.harvester_id == Staff.id)
+        .outerjoin(Partner, HarvestTransaction.partner_id == Partner.id)
     )
     
     # Apply date filters
@@ -44,12 +45,16 @@ def get_report_records(
     # Apply scope filters
     if scope == "individual_harvester" and harvester_id:
         query = query.filter(HarvestTransaction.harvester_id == harvester_id)
+    elif scope == "individual_partner" and partner_id:
+        query = query.filter(HarvestTransaction.partner_id == partner_id)
     elif scope == "group_location" and city:
         query = query.filter(VendoMachine.city_municipality.ilike(f"%{city}%"))
     else:
         # Default/all scope with optional granular filters
         if vlan_id:
             query = query.filter(HarvestTransaction.vlan_id == vlan_id)
+        if partner_id:
+            query = query.filter(HarvestTransaction.partner_id == partner_id)
         if harvester_id:
             query = query.filter(HarvestTransaction.harvester_id == harvester_id)
         if city:
@@ -62,19 +67,20 @@ def get_report_records(
     
     records = []
     for t in txns:
+        partner_name = t.partner.name if t.partner else (t.vendo.partner.name if t.vendo and t.vendo.partner else "N/A")
         records.append({
             "id": t.id,
             "transaction_ref": t.transaction_ref,
             "harvest_date": t.harvest_date,
             "vlan_id": t.vlan_id,
             "vendo_name": t.vendo.vendo_name if t.vendo else "",
-            "partner_id": None,
-            "partner_name": "N/A",
+            "partner_id": t.partner_id or (t.vendo.partner_id if t.vendo else None),
+            "partner_name": partner_name,
             "harvester_id": t.harvester_id,
             "harvester_name": t.harvester.full_name if t.harvester else "Unassigned",
             "city": t.vendo.city_municipality if t.vendo else "",
             "gross_harvest": t.gross_harvest,
-            "partner_share": Decimal("0.00"),
+            "partner_share": t.partner_share,
             "staff_incentive": t.staff_incentive,
             "gartech_net": t.gartech_net,
             "status": t.status.value

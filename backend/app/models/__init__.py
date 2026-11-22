@@ -121,8 +121,9 @@ class SystemSetting(Base):
     default_province = Column(String(100), default="Bukidnon", nullable=False)
     currency_symbol = Column(String(10), default="₱", nullable=False)
     logo_url = Column(String(255), default="/logo.jpg", nullable=False)
+    partner_share_percentage = Column(Numeric(5, 2), default=25.00, nullable=False)
     staff_incentive_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)
-    gartech_net_percentage = Column(Numeric(5, 2), default=95.00, nullable=False)
+    gartech_net_percentage = Column(Numeric(5, 2), default=70.00, nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class RevenueShareConfiguration(Base):
