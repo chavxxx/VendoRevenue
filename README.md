@@ -28,6 +28,21 @@ wget -qO- https://raw.githubusercontent.com/chavxxx/VendoRevenue/main/scripts/in
 
 ---
 
+## 🗑️ 1-Liner Complete Uninstaller
+
+To completely uninstall GARTECH VENDO (stopping all Docker containers, wiping databases and volumes, deleting source files, and removing cron jobs):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/chavxxx/VendoRevenue/main/scripts/uninstall.sh | sudo bash
+```
+
+*For non-interactive force purge (bypassing confirmation prompt):*
+```bash
+curl -fsSL https://raw.githubusercontent.com/chavxxx/VendoRevenue/main/scripts/uninstall.sh | sudo bash -s -- --force
+```
+
+---
+
 ## 🌟 Executive Summary
 
 **GARTECH VENDO** is a comprehensive, production-ready operational and financial management application built to manage hundreds of WiFi vendo machines distributed across various locations. Each machine generates coin revenue that is harvested once a month by assigned field personnel, divided between GARTECH (70%), the location partner (25%), and the staff member performing the harvesting (5%).
@@ -162,7 +177,8 @@ GARTECH/
 │   ├── backup_db.sh           # Automated PostgreSQL backup with 30-day retention
 │   ├── restore_db.sh          # Database restore script
 │   ├── install.sh             # 1-command installer for Ubuntu Server / Proxmox
-│   └── update.sh              # Zero-downtime application updater
+│   ├── update.sh              # Zero-downtime application updater
+│   └── uninstall.sh           # 1-liner complete system uninstaller and purge
 └── docs/                      # Engineering documentation
     ├── ARCHITECTURE.md        # Technical architecture & financial specifications
     ├── DATABASE_SCHEMA.md     # Relational schema dictionary
