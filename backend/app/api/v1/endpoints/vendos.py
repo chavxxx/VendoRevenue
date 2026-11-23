@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
 from app.models import (
-    User, UserRole, VendoMachine, Staff, 
+    User, UserRole, VendoMachine, Staff, Partner,
     HarvestTransaction, HarvestStatus, VendoStatus, SystemSetting
 )
 from app.schemas import (
@@ -38,7 +38,7 @@ def get_vendo_stats(
 def list_vendos(
     search: Optional[str] = Query(None, description="Search by VLAN, machine name, or address"),
     partner_id: Optional[int] = Query(None), # backward compatibility (ignored)
-    status: Optional[VendoStatus] = Query(None),
+    status: Optional[str] = Query(None),
     city: Optional[str] = Query(None),
     assigned_harvester_id: Optional[int] = Query(None),
     sort_by: str = Query("vlan_id", description="Field to sort by"),
@@ -50,19 +50,26 @@ def list_vendos(
 ):
     query = db.query(VendoMachine)
     
-    if status:
-        query = query.filter(VendoMachine.status == status)
-    if city:
-        query = query.filter(VendoMachine.city_municipality.ilike(f"%{city}%"))
+    if status and status.strip() not in ("undefined", "null", "ALL", ""):
+        try:
+            status_enum = VendoStatus(status.strip().upper())
+            query = query.filter(VendoMachine.status == status_enum)
+        except ValueError:
+            pass
+
+    if city and city.strip() not in ("undefined", "null", "All Locations", ""):
+        query = query.filter(VendoMachine.city_municipality.ilike(f"%{city.strip()}%"))
+
     if assigned_harvester_id:
         query = query.filter(VendoMachine.assigned_harvester_id == assigned_harvester_id)
         
-    if search:
-        search_fmt = f"%{search}%"
-        if search.isdigit():
+    if search and search.strip() not in ("undefined", "null", ""):
+        search_val = search.strip()
+        search_fmt = f"%{search_val}%"
+        if search_val.isdigit():
             query = query.filter(
                 or_(
-                    VendoMachine.vlan_id == int(search),
+                    VendoMachine.vlan_id == int(search_val),
                     VendoMachine.vendo_name.ilike(search_fmt),
                     VendoMachine.complete_address.ilike(search_fmt),
                     VendoMachine.city_municipality.ilike(search_fmt)

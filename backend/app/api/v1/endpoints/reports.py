@@ -80,6 +80,7 @@ def get_report_records(
             "harvester_name": t.harvester.full_name if t.harvester else "Unassigned",
             "city": t.vendo.city_municipality if t.vendo else "",
             "gross_harvest": t.gross_harvest,
+            "expenses": t.expenses if t.expenses is not None else Decimal("0.00"),
             "partner_share": t.partner_share,
             "staff_incentive": t.staff_incentive,
             "gartech_net": t.gartech_net,
@@ -109,6 +110,7 @@ def get_daily_report(
     )
     
     total_gross = sum((r["gross_harvest"] for r in records), Decimal("0.00"))
+    total_expenses = sum((r.get("expenses", Decimal("0.00")) for r in records), Decimal("0.00"))
     total_partner = sum((r["partner_share"] for r in records), Decimal("0.00"))
     total_staff = sum((r["staff_incentive"] for r in records), Decimal("0.00"))
     total_net = sum((r["gartech_net"] for r in records), Decimal("0.00"))
@@ -119,6 +121,7 @@ def get_daily_report(
         "report_date": target_date,
         "total_records": len(records),
         "total_gross": total_gross,
+        "total_expenses": total_expenses,
         "total_partner_share": total_partner,
         "total_staff_incentive": total_staff,
         "total_gartech_net": total_net,
@@ -152,6 +155,7 @@ def get_weekly_report(
     )
     
     total_gross = sum((r["gross_harvest"] for r in records), Decimal("0.00"))
+    total_expenses = sum((r.get("expenses", Decimal("0.00")) for r in records), Decimal("0.00"))
     total_partner = sum((r["partner_share"] for r in records), Decimal("0.00"))
     total_staff = sum((r["staff_incentive"] for r in records), Decimal("0.00"))
     total_net = sum((r["gartech_net"] for r in records), Decimal("0.00"))
@@ -165,6 +169,7 @@ def get_weekly_report(
         "total_records": len(records),
         "machines_harvested": unique_machines,
         "total_gross": total_gross,
+        "total_expenses": total_expenses,
         "total_partner_share": total_partner,
         "total_staff_incentive": total_staff,
         "total_gartech_net": total_net,
@@ -206,6 +211,7 @@ def get_monthly_report(
     pending_count = max(0, total_active_machines - harvested_count)
     
     total_gross = sum((r["gross_harvest"] for r in records), Decimal("0.00"))
+    total_expenses = sum((r.get("expenses", Decimal("0.00")) for r in records), Decimal("0.00"))
     total_partner = sum((r["partner_share"] for r in records), Decimal("0.00"))
     total_staff = sum((r["staff_incentive"] for r in records), Decimal("0.00"))
     total_net = sum((r["gartech_net"] for r in records), Decimal("0.00"))
@@ -221,6 +227,7 @@ def get_monthly_report(
         "machines_harvested": harvested_count,
         "machines_pending": pending_count,
         "total_gross": total_gross,
+        "total_expenses": total_expenses,
         "total_partner_share": total_partner,
         "total_staff_incentive": total_staff,
         "total_gartech_net": total_net,
@@ -414,7 +421,7 @@ def export_csv(
     writer.writerow([
         "Transaction Ref", "Harvest Date", "VLAN ID", "Vendo Name",
         "Partner Name", "Harvester", "City", "Gross Harvest (PHP)",
-        "Partner Share (PHP)", "Staff Incentive (PHP)", "GARTECH Net (PHP)", "Status"
+        "Expenses (PHP)", "Partner Share (PHP)", "Staff Incentive (PHP)", "GARTECH Net (PHP)", "Status"
     ])
     
     for r in records:
@@ -427,6 +434,7 @@ def export_csv(
             r.get("harvester_name", ""),
             r.get("city", ""),
             f"{Decimal(str(r.get('gross_harvest', 0))):.2f}",
+            f"{Decimal(str(r.get('expenses', 0))):.2f}",
             f"{Decimal(str(r.get('partner_share', 0))):.2f}",
             f"{Decimal(str(r.get('staff_incentive', 0))):.2f}",
             f"{Decimal(str(r.get('gartech_net', 0))):.2f}",

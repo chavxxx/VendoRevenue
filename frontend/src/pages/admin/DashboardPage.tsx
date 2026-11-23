@@ -24,7 +24,8 @@ import {
   MapPin,
   Clock,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Receipt
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -320,7 +321,7 @@ export const DashboardPage: React.FC = () => {
       {activeTab === 'fleet' && (
         <div className="space-y-6">
           {/* KPI Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {/* Total Gross Harvest */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
@@ -365,10 +366,24 @@ export const DashboardPage: React.FC = () => {
               <div className="text-xs text-gray-400 dark:text-slate-500 mt-1">All staff & employee pool</div>
             </div>
 
+            {/* Total Expenses Deducted */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Expenses</span>
+                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                  <Receipt className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-2">
+                {formatCurrency(summary?.total_expenses || 0)}
+              </div>
+              <div className="text-xs text-rose-600/80 dark:text-rose-400/80 mt-1">Deducted from operating net</div>
+            </div>
+
             {/* GARTECH Net Revenue */}
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">GARTECH Net ({settings.gartech_net_percentage || 70}%)</span>
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">GARTECH Net</span>
                 <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
                   <TrendingUp className="w-5 h-5" />
                 </div>

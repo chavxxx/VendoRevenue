@@ -207,6 +207,7 @@ class VendoResponse(VendoBase):
 # --- HARVEST SCHEMAS ---
 class HarvestCalculationPreview(BaseModel):
     gross_harvest: Decimal
+    expenses: Decimal = Decimal("0.00")
     partner_percentage: Decimal
     partner_share: Decimal
     staff_percentage: Decimal
@@ -218,6 +219,7 @@ class HarvestCreate(BaseModel):
     vlan_id: int
     harvest_date: date
     gross_harvest: Decimal
+    expenses: Optional[Decimal] = Decimal("0.00")
     harvester_id: int # selected when encoding harvest
     remarks: Optional[str] = None
 
@@ -243,6 +245,7 @@ class HarvestResponse(BaseModel):
     harvest_date: date
     harvest_period: str
     gross_harvest: Decimal
+    expenses: Decimal = Decimal("0.00")
     partner_percentage: Decimal = Decimal("0.00")
     partner_share: Decimal = Decimal("0.00")
     staff_percentage: Decimal
@@ -268,6 +271,7 @@ class DashboardSummary(BaseModel):
     inactive_vendos: int
     total_partners: Optional[int] = 0
     total_gross_harvest: Decimal
+    total_expenses: Optional[Decimal] = Decimal("0.00")
     total_partner_shares: Optional[Decimal] = Decimal("0.00")
     total_staff_incentives: Decimal
     total_gartech_net: Decimal

@@ -48,17 +48,19 @@ export const VendosPage: React.FC = () => {
     remarks: ''
   });
 
-  const loadData = async () => {
+  const loadData = async (overrideParams: Record<string, any> = {}) => {
     setLoading(true);
     try {
+      const params = {
+        search: search || undefined,
+        status: statusFilter || undefined,
+        city: cityFilter || undefined,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        ...overrideParams
+      };
       const [vRes, sRes] = await Promise.all([
-        api.getVendos({
-          search: search || undefined,
-          status: statusFilter || undefined,
-          city: cityFilter || undefined,
-          sort_by: sortBy,
-          sort_order: sortOrder
-        }),
+        api.getVendos(params),
         api.getVendoStats(),
       ]);
       setVendos(vRes);
@@ -115,7 +117,10 @@ export const VendosPage: React.FC = () => {
       });
       setIsAddModalOpen(false);
       resetForm();
-      loadData();
+      setSearch('');
+      setStatusFilter('');
+      setCityFilter('');
+      await loadData({ search: undefined, status: undefined, city: undefined });
     } catch (err: any) {
       alert(`Error creating vendo: ${err.message}`);
     }
@@ -138,7 +143,7 @@ export const VendosPage: React.FC = () => {
       setIsEditModalOpen(false);
       setEditingVendo(null);
       resetForm();
-      loadData();
+      await loadData();
     } catch (err: any) {
       alert(`Error updating vendo: ${err.message}`);
     }
@@ -150,7 +155,7 @@ export const VendosPage: React.FC = () => {
     try {
       await api.deleteVendo(deletingVendo.vlan_id);
       setDeletingVendo(null);
-      loadData();
+      await loadData();
     } catch (err: any) {
       alert(`Error deleting vendo: ${err.message}`);
     } finally {

@@ -42,6 +42,8 @@ def test_login_and_roles():
 
 def test_staff_and_user_crud():
     """Test Add, Edit, and Delete for Staff and User accounts."""
+    import time
+    ts = int(time.time() * 1000) % 100000
     admin_res = client.post("/api/v1/auth/login", json={
         "username": "admin",
         "password": "GartechAdmin2026!"
@@ -51,8 +53,8 @@ def test_staff_and_user_crud():
 
     # 1. Create Staff Harvester
     create_staff = client.post("/api/v1/staff/", headers=headers, json={
-        "staff_code": "STF-TEST-99",
-        "full_name": "Test Harvester 99",
+        "staff_code": f"STF-{ts}",
+        "full_name": f"Test Harvester {ts}",
         "phone": "0917-999-8888",
         "role_type": "FIELD_HARVESTER"
     })
@@ -69,9 +71,9 @@ def test_staff_and_user_crud():
 
     # 3. Create User Account
     create_user = client.post("/api/v1/users/", headers=headers, json={
-        "username": "testuser99",
-        "full_name": "Test User 99",
-        "email": "testuser99@gartech.ph",
+        "username": f"user{ts}",
+        "full_name": f"Test User {ts}",
+        "email": f"testuser{ts}@gartech.ph",
         "role": "STAFF_ENCODER",
         "password": "Password123!"
     })
@@ -191,3 +193,32 @@ def test_system_update_check():
     assert "repo_url" in data
     assert "checked_at" in data
     assert "PST" in data["checked_at"]
+
+def test_expenses_deduction_from_net():
+    """Verify that encoded expenses are deducted directly from GARTECH Net."""
+    admin_res = client.post("/api/v1/auth/login", json={
+        "username": "admin",
+        "password": "GartechAdmin2026!"
+    })
+    token = admin_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Gross: 1,000.00
+    # Partner (25%): 250.00
+    # Staff (5%): 50.00
+    # Expenses: 100.00
+    # Net: 1000 - 250 - 50 - 100 = 600.00
+    preview_res = client.post("/api/v1/harvests/preview", headers=headers, json={
+        "gross_harvest": 1000.00,
+        "expenses": 100.00,
+        "partner_percentage": 25.00,
+        "staff_percentage": 5.00
+    })
+    assert preview_res.status_code == 200
+    prev = preview_res.json()
+    assert float(prev["gross_harvest"]) == 1000.00
+    assert float(prev["partner_share"]) == 250.00
+    assert float(prev["staff_incentive"]) == 50.00
+    assert float(prev["expenses"]) == 100.00
+    assert float(prev["gartech_net"]) == 600.00
+

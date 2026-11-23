@@ -2,6 +2,7 @@ import zoneinfo
 from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.core.database import Base, engine, SessionLocal
 from app.core.security import get_password_hash
 from app.models import (
@@ -19,6 +20,22 @@ def init_database():
     Preserves all production data on system restarts and updates.
     """
     Base.metadata.create_all(bind=engine)
+    
+    # Safe schema migration: ensure new columns exist in existing database tables
+    try:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE harvest_transactions ADD COLUMN IF NOT EXISTS expenses NUMERIC(12, 2) DEFAULT 0.00;"))
+                conn.commit()
+            except Exception:
+                try:
+                    conn.execute(text("ALTER TABLE harvest_transactions ADD COLUMN expenses NUMERIC(12, 2) DEFAULT 0.00;"))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception as e:
+        print("Schema migration notice:", e)
+
     db = SessionLocal()
     
     try:

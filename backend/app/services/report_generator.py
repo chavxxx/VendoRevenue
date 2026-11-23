@@ -41,7 +41,7 @@ def generate_harvest_excel(
     # Headers
     headers = [
         "TXN Ref", "Harvest Date", "VLAN", "Vendo Name", "Partner Name",
-        "Harvester", "Gross Harvest (₱)", "Partner Share (₱)", 
+        "Harvester", "Gross Harvest (₱)", "Expenses (₱)", "Partner Share (₱)", 
         "Staff Incentive (₱)", "GARTECH Net (₱)", "Status"
     ]
     header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
@@ -64,17 +64,20 @@ def generate_harvest_excel(
     # Data Rows
     row_idx = 5
     total_gross = Decimal("0.00")
+    total_expenses = Decimal("0.00")
     total_partner = Decimal("0.00")
     total_staff = Decimal("0.00")
     total_net = Decimal("0.00")
     
     for r in records:
         gross = Decimal(str(r.get("gross_harvest", 0)))
+        exp = Decimal(str(r.get("expenses", 0)))
         partner = Decimal(str(r.get("partner_share", 0)))
         staff = Decimal(str(r.get("staff_incentive", 0)))
         net = Decimal(str(r.get("gartech_net", 0)))
         
         total_gross += gross
+        total_expenses += exp
         total_partner += partner
         total_staff += staff
         total_net += net
@@ -87,6 +90,7 @@ def generate_harvest_excel(
             r.get("partner_name", ""),
             r.get("harvester_name", ""),
             float(gross),
+            float(exp),
             float(partner),
             float(staff),
             float(net),
@@ -97,10 +101,10 @@ def generate_harvest_excel(
         for col_idx, val in enumerate(row_vals, start=1):
             cell = ws.cell(row=row_idx, column=col_idx, value=val)
             cell.border = thin_border
-            if col_idx in [7, 8, 9, 10]:
+            if col_idx in [7, 8, 9, 10, 11]:
                 cell.number_format = "₱#,##0.00"
                 cell.alignment = Alignment(horizontal="right", vertical="center")
-            elif col_idx in [2, 3, 11]:
+            elif col_idx in [2, 3, 12]:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -114,15 +118,16 @@ def generate_harvest_excel(
     total_cell.alignment = Alignment(horizontal="left", vertical="center")
     
     total_fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
-    for c in range(1, 12):
+    for c in range(1, 13):
         ws.cell(row=row_idx, column=c).fill = total_fill
         ws.cell(row=row_idx, column=c).font = Font(name="Calibri", size=11, bold=True)
         ws.cell(row=row_idx, column=c).border = thin_border
         
     ws.cell(row=row_idx, column=7, value=float(total_gross)).number_format = "₱#,##0.00"
-    ws.cell(row=row_idx, column=8, value=float(total_partner)).number_format = "₱#,##0.00"
-    ws.cell(row=row_idx, column=9, value=float(total_staff)).number_format = "₱#,##0.00"
-    ws.cell(row=row_idx, column=10, value=float(total_net)).number_format = "₱#,##0.00"
+    ws.cell(row=row_idx, column=8, value=float(total_expenses)).number_format = "₱#,##0.00"
+    ws.cell(row=row_idx, column=9, value=float(total_partner)).number_format = "₱#,##0.00"
+    ws.cell(row=row_idx, column=10, value=float(total_staff)).number_format = "₱#,##0.00"
+    ws.cell(row=row_idx, column=11, value=float(total_net)).number_format = "₱#,##0.00"
 
     # Column Auto-fit
     for col in ws.columns:

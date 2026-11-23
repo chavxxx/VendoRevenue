@@ -84,6 +84,7 @@ def serialize_harvest(t: HarvestTransaction) -> HarvestResponse:
         harvest_date=t.harvest_date,
         harvest_period=t.harvest_period,
         gross_harvest=t.gross_harvest,
+        expenses=t.expenses if t.expenses is not None else Decimal("0.00"),
         partner_percentage=t.partner_percentage,
         partner_share=t.partner_share,
         staff_percentage=t.staff_percentage,
@@ -107,6 +108,7 @@ def preview_harvest_computation(
     current_user: User = Depends(get_current_user)
 ):
     gross = payload.get("gross_harvest", 0)
+    expenses = payload.get("expenses", 0)
     vlan_id = payload.get("vlan_id")
     vendo = None
     if vlan_id:
@@ -120,16 +122,22 @@ def preview_harvest_computation(
         s_pct = to_decimal(payload["staff_percentage"])
     g_pct = Decimal("100.00") - p_pct - s_pct
 
-    distribution = compute_revenue_distribution(gross, p_pct, s_pct, g_pct)
+    distribution = compute_revenue_distribution(
+        gross_harvest=gross, 
+        partner_percentage=p_pct, 
+        staff_percentage=s_pct, 
+        gartech_percentage=g_pct,
+        expenses=expenses
+    )
     return HarvestCalculationPreview(**distribution)
 
 @router.get("/", response_model=List[HarvestResponse])
 def list_harvests(
-    vlan_id: Optional[int] = Query(None),
-    partner_id: Optional[int] = Query(None),
-    harvester_id: Optional[int] = Query(None),
+    vlan_id: Optional[str] = Query(None),
+    partner_id: Optional[str] = Query(None),
+    harvester_id: Optional[str] = Query(None),
     harvest_period: Optional[str] = Query(None, description="YYYY-MM"),
-    status: Optional[HarvestStatus] = Query(None),
+    status: Optional[str] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     skip: int = Query(0, ge=0),
@@ -139,16 +147,29 @@ def list_harvests(
 ):
     query = db.query(HarvestTransaction).outerjoin(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)
     
-    if vlan_id:
-        query = query.filter(HarvestTransaction.vlan_id == vlan_id)
-    if partner_id:
-        query = query.filter(HarvestTransaction.partner_id == partner_id)
-    if harvester_id:
-        query = query.filter(HarvestTransaction.harvester_id == harvester_id)
-    if harvest_period:
-        query = query.filter(HarvestTransaction.harvest_period == harvest_period)
-    if status:
-        query = query.filter(HarvestTransaction.status == status)
+    if vlan_id and str(vlan_id).strip() not in ("undefined", "null", ""):
+        try:
+            query = query.filter(HarvestTransaction.vlan_id == int(vlan_id))
+        except ValueError:
+            pass
+    if partner_id and str(partner_id).strip() not in ("undefined", "null", ""):
+        try:
+            query = query.filter(HarvestTransaction.partner_id == int(partner_id))
+        except ValueError:
+            pass
+    if harvester_id and str(harvester_id).strip() not in ("undefined", "null", ""):
+        try:
+            query = query.filter(HarvestTransaction.harvester_id == int(harvester_id))
+        except ValueError:
+            pass
+    if harvest_period and harvest_period.strip() not in ("undefined", "null", ""):
+        query = query.filter(HarvestTransaction.harvest_period == harvest_period.strip())
+    if status and status.strip() not in ("undefined", "null", "ALL", ""):
+        try:
+            status_enum = HarvestStatus(status.strip().upper())
+            query = query.filter(HarvestTransaction.status == status_enum)
+        except ValueError:
+            pass
     if start_date:
         query = query.filter(HarvestTransaction.harvest_date >= start_date)
     if end_date:
@@ -194,7 +215,8 @@ def encode_harvest(
         gross_harvest=payload.gross_harvest,
         partner_percentage=p_pct,
         staff_percentage=s_pct,
-        gartech_percentage=g_pct
+        gartech_percentage=g_pct,
+        expenses=payload.expenses or Decimal("0.00")
     )
     
     transaction_ref = generate_transaction_ref(db, payload.harvest_date)
@@ -209,6 +231,7 @@ def encode_harvest(
         harvest_date=payload.harvest_date,
         harvest_period=harvest_period,
         gross_harvest=distribution["gross_harvest"],
+        expenses=distribution["expenses"],
         partner_percentage=distribution["partner_percentage"],
         partner_share=distribution["partner_share"],
         staff_percentage=distribution["staff_percentage"],
@@ -234,6 +257,7 @@ def encode_harvest(
             "vlan_id": harvest.vlan_id,
             "period": harvest.harvest_period,
             "gross": str(harvest.gross_harvest),
+            "expenses": str(harvest.expenses),
             "partner_share": str(harvest.partner_share),
             "staff_incentive": str(harvest.staff_incentive),
             "gartech_net": str(harvest.gartech_net),

@@ -67,6 +67,7 @@ def get_dashboard_summary(
     
     txn_query = db.query(
         func.coalesce(func.sum(HarvestTransaction.gross_harvest), Decimal("0.00")).label("gross"),
+        func.coalesce(func.sum(HarvestTransaction.expenses), Decimal("0.00")).label("expenses"),
         func.coalesce(func.sum(HarvestTransaction.partner_share), Decimal("0.00")).label("partner_share"),
         func.coalesce(func.sum(HarvestTransaction.staff_incentive), Decimal("0.00")).label("staff_incentive"),
         func.coalesce(func.sum(HarvestTransaction.gartech_net), Decimal("0.00")).label("gartech_net")
@@ -91,6 +92,7 @@ def get_dashboard_summary(
         inactive_vendos=inactive_vendos,
         total_partners=total_partners,
         total_gross_harvest=financials.gross or Decimal("0.00"),
+        total_expenses=financials.expenses or Decimal("0.00"),
         total_partner_shares=financials.partner_share or Decimal("0.00"),
         total_staff_incentives=financials.staff_incentive or Decimal("0.00"),
         total_gartech_net=financials.gartech_net or Decimal("0.00")

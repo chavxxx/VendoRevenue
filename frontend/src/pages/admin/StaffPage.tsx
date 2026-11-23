@@ -57,11 +57,12 @@ export const StaffPage: React.FC = () => {
     password: ''
   });
 
-  const loadData = async () => {
+  const loadData = async (overrideParams: Record<string, any> = {}) => {
     setLoading(true);
     try {
+      const searchParam = overrideParams.search !== undefined ? overrideParams.search : search;
       const [staffData, usersData] = await Promise.all([
-        api.getStaff({ search: search || undefined }),
+        api.getStaff({ search: searchParam || undefined }),
         api.getUsers()
       ]);
       setStaff(staffData);
@@ -101,7 +102,9 @@ export const StaffPage: React.FC = () => {
       }
       setIsStaffModalOpen(false);
       setEditingStaff(null);
-      await loadData();
+      setSearch('');
+      setActiveTab('all');
+      await loadData({ search: undefined });
     } catch (err: any) {
       alert(`Error saving staff: ${err.message}`);
     }
@@ -143,7 +146,9 @@ export const StaffPage: React.FC = () => {
       }
       setIsUserModalOpen(false);
       setEditingUser(null);
-      await loadData();
+      setSearch('');
+      setActiveTab('all');
+      await loadData({ search: undefined });
     } catch (err: any) {
       alert(`Error saving user account: ${err.message}`);
     }
@@ -186,8 +191,13 @@ export const StaffPage: React.FC = () => {
           <button
             onClick={() => {
               setEditingStaff(null);
+              const maxNum = staff.reduce((max, s) => {
+                const match = s.staff_code?.match(/STF-(\d+)/);
+                return match ? Math.max(max, parseInt(match[1])) : max;
+              }, 0);
+              const nextCode = `STF-${(maxNum + 1).toString().padStart(3, '0')}`;
               setStaffForm({
-                staff_code: `STF-${(staff.length + 1).toString().padStart(3, '0')}`,
+                staff_code: nextCode,
                 full_name: '',
                 phone: '',
                 email: '',

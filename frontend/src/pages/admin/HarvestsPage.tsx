@@ -193,6 +193,7 @@ export const HarvestsPage: React.FC = () => {
                 <th className="py-3 px-4">Machine</th>
                 <th className="py-3 px-4">Harvester</th>
                 <th className="py-3 px-4 text-right">Gross</th>
+                <th className="py-3 px-4 text-right">Expenses</th>
                 <th className="py-3 px-4 text-right">Partner</th>
                 <th className="py-3 px-4 text-right">Incentive</th>
                 <th className="py-3 px-4 text-right">GARTECH Net</th>
@@ -203,11 +204,11 @@ export const HarvestsPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-400 dark:text-slate-500">Loading harvest records...</td>
+                  <td colSpan={11} className="py-8 text-center text-gray-400 dark:text-slate-500">Loading harvest records...</td>
                 </tr>
               ) : harvests.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-400 dark:text-slate-500">No harvest records found.</td>
+                  <td colSpan={11} className="py-8 text-center text-gray-400 dark:text-slate-500">No harvest records found.</td>
                 </tr>
               ) : (
                 harvests.map((t) => (
@@ -220,6 +221,9 @@ export const HarvestsPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-gray-600 dark:text-slate-400 font-medium">{t.harvester_name || '–'}</td>
                     <td className="py-3 px-4 text-right font-bold text-navy-900 dark:text-white">{formatCurrency(t.gross_harvest)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-rose-600 dark:text-rose-400">
+                      {t.expenses && Number(t.expenses) > 0 ? formatCurrency(t.expenses) : '₱0.00'}
+                    </td>
                     <td className="py-3 px-4 text-right font-medium text-blue-600 dark:text-blue-400">{formatCurrency(t.partner_share)}</td>
                     <td className="py-3 px-4 text-right font-medium text-amber-600 dark:text-amber-400">{formatCurrency(t.staff_incentive)}</td>
                     <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(t.gartech_net)}</td>

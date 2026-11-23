@@ -337,7 +337,7 @@ export const ReportsPage: React.FC = () => {
 
       {/* Summary KPI Cards */}
       {reportData && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
             <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Gross Fleet Collections</span>
             <div className="text-2xl font-black text-navy-900 dark:text-white mt-1">
@@ -366,6 +366,16 @@ export const ReportsPage: React.FC = () => {
               {formatCurrency(reportData.total_staff_incentives || reportData.total_staff_incentive)}
             </div>
             <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Staff & employee incentives</div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
+            <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+              Expenses Deducted
+            </span>
+            <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+              {formatCurrency(reportData.total_expenses)}
+            </div>
+            <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Deducted from operating net</div>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
@@ -402,6 +412,7 @@ export const ReportsPage: React.FC = () => {
                 <th className="py-3 px-4">Partner</th>
                 <th className="py-3 px-4">Harvester</th>
                 <th className="py-3 px-4 text-right">Gross</th>
+                <th className="py-3 px-4 text-right">Expenses</th>
                 <th className="py-3 px-4 text-right">Partner Share</th>
                 <th className="py-3 px-4 text-right">Staff ({settings.staff_incentive_percentage}%)</th>
                 <th className="py-3 px-4 text-right">{settings.company_name} Net</th>
@@ -411,13 +422,13 @@ export const ReportsPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-gray-400 dark:text-slate-500">
+                  <td colSpan={12} className="py-8 text-center text-gray-400 dark:text-slate-500">
                     Loading financial statement...
                   </td>
                 </tr>
               ) : !reportData || !reportData.records || reportData.records.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-gray-400 dark:text-slate-500">
+                  <td colSpan={12} className="py-8 text-center text-gray-400 dark:text-slate-500">
                     No transactions match this reporting criteria.
                   </td>
                 </tr>
@@ -431,6 +442,9 @@ export const ReportsPage: React.FC = () => {
                     <td className="py-3 px-4 text-purple-700 dark:text-purple-300 font-medium">{r.partner_name || 'N/A'}</td>
                     <td className="py-3 px-4 text-amber-700 dark:text-amber-300">{r.harvester_name || '–'}</td>
                     <td className="py-3 px-4 text-right font-bold text-navy-900 dark:text-white">{formatCurrency(r.gross_harvest)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-rose-600 dark:text-rose-400">
+                      {r.expenses && Number(r.expenses) > 0 ? formatCurrency(r.expenses) : '₱0.00'}
+                    </td>
                     <td className="py-3 px-4 text-right font-semibold text-purple-700 dark:text-purple-300">{formatCurrency(r.partner_share)}</td>
                     <td className="py-3 px-4 text-right font-semibold text-amber-700 dark:text-amber-300">{formatCurrency(r.staff_incentive)}</td>
                     <td className="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(r.gartech_net)}</td>

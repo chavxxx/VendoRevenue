@@ -57,6 +57,23 @@ export async function apiRequest<T = any>(
   return response.blob() as any;
 }
 
+export function cleanQuery(params: Record<string, any> = {}): string {
+  const clean: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (
+      value !== undefined && 
+      value !== null && 
+      value !== '' && 
+      value !== 'undefined' && 
+      value !== 'null'
+    ) {
+      clean[key] = String(value);
+    }
+  }
+  const qs = new URLSearchParams(clean).toString();
+  return qs ? `?${qs}` : '';
+}
+
 export const api = {
   // Auth
   login: (credentials: { username: string; password: string }) =>
@@ -64,10 +81,8 @@ export const api = {
   getMe: () => apiRequest('/auth/me'),
 
   // Vendos
-  getVendos: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/vendos/?${query}`);
-  },
+  getVendos: (params: Record<string, any> = {}) =>
+    apiRequest(`/vendos/${cleanQuery(params)}`),
   getVendoStats: () => apiRequest('/vendos/stats'),
   getVendoByVlan: (vlanId: number) => apiRequest(`/vendos/${vlanId}`),
   createVendo: (data: any) => apiRequest('/vendos/', { method: 'POST', body: JSON.stringify(data) }),
@@ -82,19 +97,15 @@ export const api = {
   uploadLogo: (formData: FormData) => apiRequest('/users/system/settings/logo', { method: 'POST', body: formData }),
 
   // Partners (Location Partners)
-  getPartners: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/partners/?${query}`);
-  },
+  getPartners: (params: Record<string, any> = {}) =>
+    apiRequest(`/partners/${cleanQuery(params)}`),
   getPartnerDetail: (id: number) => apiRequest(`/partners/${id}`),
   createPartner: (data: any) => apiRequest('/partners/', { method: 'POST', body: JSON.stringify(data) }),
   updatePartner: (id: number, data: any) => apiRequest(`/partners/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Staff / Harvesters
-  getStaff: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/staff/?${query}`);
-  },
+  getStaff: (params: Record<string, any> = {}) =>
+    apiRequest(`/staff/${cleanQuery(params)}`),
   getStaffDetail: (id: number) => apiRequest(`/staff/${id}`),
   createStaff: (data: any) => apiRequest('/staff/', { method: 'POST', body: JSON.stringify(data) }),
   updateStaff: (id: number, data: any) => apiRequest(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -107,14 +118,12 @@ export const api = {
   deleteUser: (id: number) => apiRequest(`/users/${id}`, { method: 'DELETE' }),
 
   // Harvests
-  previewHarvest: (data: { gross_harvest: number; vlan_id?: number; partner_percentage?: number; staff_percentage?: number }) =>
+  previewHarvest: (data: { gross_harvest: number; expenses?: number; vlan_id?: number; partner_percentage?: number; staff_percentage?: number }) =>
     apiRequest('/harvests/preview', { method: 'POST', body: JSON.stringify(data) }),
-  encodeHarvest: (data: { vlan_id: number; harvest_date: string; gross_harvest: number; harvester_id: number; remarks?: string }) =>
+  encodeHarvest: (data: { vlan_id: number; harvest_date: string; gross_harvest: number; expenses?: number; harvester_id: number; remarks?: string }) =>
     apiRequest('/harvests/', { method: 'POST', body: JSON.stringify(data) }),
-  getHarvests: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/harvests/?${query}`);
-  },
+  getHarvests: (params: Record<string, any> = {}) =>
+    apiRequest(`/harvests/${cleanQuery(params)}`),
   getHarvestDetail: (id: number) => apiRequest(`/harvests/${id}`),
   approveHarvest: (id: number) => apiRequest(`/harvests/${id}/approve`, { method: 'POST' }),
   rejectHarvest: (id: number, reason?: string) =>
@@ -123,60 +132,43 @@ export const api = {
     apiRequest(`/harvests/${id}/void`, { method: 'POST', body: JSON.stringify({ void_reason }) }),
 
   // Dashboard
-  getDashboardSummary: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/dashboard/summary?${query}`);
-  },
+  getDashboardSummary: (params: Record<string, any> = {}) =>
+    apiRequest(`/dashboard/summary${cleanQuery(params)}`),
   getDailyChart: (days: number = 14) => apiRequest(`/dashboard/charts/daily?days=${days}`),
   getMonthlyChart: (months: number = 6) => apiRequest(`/dashboard/charts/monthly?months=${months}`),
   getTopVendos: (params: Record<string, any> | number = 10) => {
     if (typeof params === 'number') {
       return apiRequest(`/dashboard/charts/top-vendos?limit=${params}`);
     }
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/dashboard/charts/top-vendos?${query}`);
+    return apiRequest(`/dashboard/charts/top-vendos${cleanQuery(params)}`);
   },
-  getLocationPerformance: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/dashboard/charts/locations?${query}`);
-  },
+  getLocationPerformance: (params: Record<string, any> = {}) =>
+    apiRequest(`/dashboard/charts/locations${cleanQuery(params)}`),
   getMunicipalities: () => apiRequest('/dashboard/municipalities'),
 
   // Harvesters Performance (Requirements 1 & 2)
-  getHarvestersPerformance: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/dashboard/harvesters?${query}`);
-  },
-  getHarvesterDetail: (staffId: number, params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/dashboard/harvesters/${staffId}?${query}`);
-  },
+  getHarvestersPerformance: (params: Record<string, any> = {}) =>
+    apiRequest(`/dashboard/harvesters${cleanQuery(params)}`),
+  getHarvesterDetail: (staffId: number, params: Record<string, any> = {}) =>
+    apiRequest(`/dashboard/harvesters/${staffId}${cleanQuery(params)}`),
 
   // Reports (Requirements: Individual, Group, All)
-  getDailyReport: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/reports/daily?${query}`);
-  },
-  getWeeklyReport: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/reports/weekly?${query}`);
-  },
-  getMonthlyReport: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/reports/monthly?${query}`);
-  },
-  getCustomReport: (params: Record<string, any> = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiRequest(`/reports/custom?${query}`);
-  },
+  getDailyReport: (params: Record<string, any> = {}) =>
+    apiRequest(`/reports/daily${cleanQuery(params)}`),
+  getWeeklyReport: (params: Record<string, any> = {}) =>
+    apiRequest(`/reports/weekly${cleanQuery(params)}`),
+  getMonthlyReport: (params: Record<string, any> = {}) =>
+    apiRequest(`/reports/monthly${cleanQuery(params)}`),
+  getCustomReport: (params: Record<string, any> = {}) =>
+    apiRequest(`/reports/custom${cleanQuery(params)}`),
   downloadReport: async (format: 'excel' | 'csv' | 'pdf', params: Record<string, any> = {}) => {
     const token = getAuthToken();
-    const query = new URLSearchParams(params).toString();
+    const qs = cleanQuery(params);
     const headers = new Headers();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
-    const res = await fetch(`${API_BASE}/reports/export/${format}?${query}`, { headers });
+    const res = await fetch(`${API_BASE}/reports/export/${format}${qs}`, { headers });
     if (!res.ok) {
       let errText = 'Failed to download report';
       try {
@@ -209,7 +201,7 @@ export const api = {
   // Settings & Configuration
   getRevenueConfig: () => apiRequest('/users/config/revenue-share'),
   updateRevenueConfig: (data: any) => apiRequest('/users/config/revenue-share', { method: 'POST', body: JSON.stringify(data) }),
-  getAuditLogs: (params: Record<string, any> = {}) => apiRequest(`/audit/?${new URLSearchParams(params).toString()}`),
+  getAuditLogs: (params: Record<string, any> = {}) => apiRequest(`/audit/${cleanQuery(params)}`),
 
   // System & GitHub Updates
   checkSystemUpdates: () => apiRequest('/users/system/update-check'),

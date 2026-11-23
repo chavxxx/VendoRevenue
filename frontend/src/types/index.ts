@@ -108,6 +108,7 @@ export interface HarvestTransaction {
   harvest_date: string;
   harvest_period: string;
   gross_harvest: number;
+  expenses?: number;
   partner_percentage?: number;
   partner_share?: number;
   staff_percentage: number;
@@ -130,6 +131,7 @@ export interface DashboardSummary {
   inactive_vendos: number;
   total_partners?: number;
   total_gross_harvest: number;
+  total_expenses?: number;
   total_partner_shares?: number;
   total_staff_incentives: number;
   total_gartech_net: number;

@@ -159,6 +159,7 @@ class HarvestTransaction(Base):
     harvest_period = Column(String(7), nullable=False, index=True)
     
     gross_harvest = Column(Numeric(12, 2), nullable=False)
+    expenses = Column(Numeric(12, 2), default=0.00, nullable=False)
     partner_percentage = Column(Numeric(5, 2), default=25.00, nullable=False)
     partner_share = Column(Numeric(12, 2), default=0.00, nullable=False)
     staff_percentage = Column(Numeric(5, 2), default=5.00, nullable=False)

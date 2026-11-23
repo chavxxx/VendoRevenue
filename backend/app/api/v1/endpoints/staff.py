@@ -40,10 +40,10 @@ def list_staff(
     query = db.query(Staff)
     if is_active is not None:
         query = query.filter(Staff.is_active == is_active)
-    if role_type:
-        query = query.filter(Staff.role_type == role_type)
-    if search:
-        search_fmt = f"%{search}%"
+    if role_type and role_type.strip() not in ("undefined", "null", ""):
+        query = query.filter(Staff.role_type == role_type.strip())
+    if search and search.strip() not in ("undefined", "null", ""):
+        search_fmt = f"%{search.strip()}%"
         query = query.filter(Staff.full_name.ilike(search_fmt) | Staff.staff_code.ilike(search_fmt))
         
     staff_members = query.order_by(Staff.full_name.asc()).offset(skip).limit(limit).all()

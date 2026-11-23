@@ -26,13 +26,15 @@ export const HarvestEncodingPage: React.FC = () => {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [selectedHarvesterId, setSelectedHarvesterId] = useState<string>('');
 
-  // Step 3: Input Gross Income & Remarks
+  // Step 3: Input Gross Income, Expenses & Remarks
   const [grossInput, setGrossInput] = useState<string>('');
+  const [expensesInput, setExpensesInput] = useState<string>('');
   const [remarks, setRemarks] = useState<string>('');
   
   // Real-time calculation state
   const [calculation, setCalculation] = useState<{
     gross_harvest: number;
+    expenses?: number;
     partner_percentage: number;
     partner_share: number;
     staff_percentage: number;
@@ -103,6 +105,7 @@ export const HarvestEncodingPage: React.FC = () => {
   useEffect(() => {
     const calcTimeout = setTimeout(async () => {
       const grossNum = parseFloat(grossInput);
+      const expNum = parseFloat(expensesInput) || 0;
       if (isNaN(grossNum) || grossNum <= 0) {
         setCalculation(null);
         return;
@@ -110,6 +113,7 @@ export const HarvestEncodingPage: React.FC = () => {
       try {
         const preview = await api.previewHarvest({
           gross_harvest: grossNum,
+          expenses: expNum,
           vlan_id: selectedVendo?.vlan_id
         });
         setCalculation(preview);
@@ -119,7 +123,7 @@ export const HarvestEncodingPage: React.FC = () => {
     }, 150);
 
     return () => clearTimeout(calcTimeout);
-  }, [grossInput, selectedVendo, settings.partner_share_percentage, settings.staff_incentive_percentage]);
+  }, [grossInput, expensesInput, selectedVendo, settings.partner_share_percentage, settings.staff_incentive_percentage]);
 
   // Final Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,11 +146,13 @@ export const HarvestEncodingPage: React.FC = () => {
     }
 
     setSubmitting(true);
+    const expNum = parseFloat(expensesInput) || 0;
     try {
       const res = await api.encodeHarvest({
         vlan_id: selectedVendo.vlan_id,
         harvest_date: harvestDate,
         gross_harvest: grossNum,
+        expenses: expNum,
         harvester_id: parseInt(selectedHarvesterId),
         remarks: remarks || undefined
       });
@@ -154,6 +160,7 @@ export const HarvestEncodingPage: React.FC = () => {
       setSuccessTxn(res);
       // Reset income input and remarks for next entry
       setGrossInput('');
+      setExpensesInput('');
       setRemarks('');
       setCalculation(null);
     } catch (err: any) {
@@ -373,26 +380,50 @@ export const HarvestEncodingPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Gross Coin Harvest Amount */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
-                GROSS COIN HARVEST AMOUNT ({settings.currency_symbol || '₱'})*
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-3 text-lg font-bold text-gray-400 dark:text-slate-500">
-                  {settings.currency_symbol || '₱'}
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  disabled={!selectedVendo}
-                  placeholder="0.00"
-                  value={grossInput}
-                  onChange={(e) => setGrossInput(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xl font-black text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                />
+            {/* Gross Coin Harvest & Expenses Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
+                  GROSS COIN HARVEST AMOUNT ({settings.currency_symbol || '₱'})*
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3 text-lg font-bold text-gray-400 dark:text-slate-500">
+                    {settings.currency_symbol || '₱'}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    disabled={!selectedVendo}
+                    placeholder="0.00"
+                    value={grossInput}
+                    onChange={(e) => setGrossInput(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xl font-black text-navy-900 dark:text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5 flex justify-between items-center">
+                  <span>EXPENSES (DEDUCTED FROM NET)</span>
+                  <span className="text-[10px] text-rose-500 font-normal">Fuel, load, maintenance</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3 text-lg font-bold text-gray-400 dark:text-slate-500">
+                    {settings.currency_symbol || '₱'}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    disabled={!selectedVendo}
+                    placeholder="0.00"
+                    value={expensesInput}
+                    onChange={(e) => setExpensesInput(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xl font-black text-rose-600 dark:text-rose-400 focus:outline-none focus:border-rose-500 disabled:opacity-50"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -409,7 +440,7 @@ export const HarvestEncodingPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 {/* Location Partner Share */}
                 <div className="bg-slate-900 p-4 rounded-xl border border-blue-500/30">
                   <div className="text-xs text-blue-400 font-bold uppercase">
@@ -424,28 +455,39 @@ export const HarvestEncodingPage: React.FC = () => {
                 {/* Staff / Harvester Incentive Pool */}
                 <div className="bg-slate-900 p-4 rounded-xl border border-amber-500/30">
                   <div className="text-xs text-amber-400 font-bold uppercase">
-                    Staff Incentive Pool ({calculation.staff_percentage}%)
+                    Staff Pool ({calculation.staff_percentage}%)
                   </div>
                   <div className="text-2xl font-extrabold text-white mt-1">
                     {formatCurrency(calculation.staff_incentive)}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">All staff & employee pool</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">All staff incentive pool</div>
+                </div>
+
+                {/* Deducted Expenses */}
+                <div className="bg-slate-900 p-4 rounded-xl border border-rose-500/30">
+                  <div className="text-xs text-rose-400 font-bold uppercase">
+                    Expenses
+                  </div>
+                  <div className="text-2xl font-extrabold text-rose-400 mt-1">
+                    {formatCurrency(calculation.expenses || 0)}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Deducted from Net</div>
                 </div>
 
                 {/* GARTECH Net */}
                 <div className="bg-slate-900 p-4 rounded-xl border border-emerald-500/30">
                   <div className="text-xs text-emerald-400 font-bold uppercase">
-                    GARTECH Net Share ({calculation.gartech_percentage}%)
+                    GARTECH Net Share
                   </div>
                   <div className="text-2xl font-extrabold text-white mt-1">
                     {formatCurrency(calculation.gartech_net)}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">Retained net revenue</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Net after expenses</div>
                 </div>
               </div>
 
               <div className="text-right text-xs text-slate-400 pt-2 border-t border-slate-800 font-mono">
-                {formatCurrency(calculation.partner_share)} + {formatCurrency(calculation.staff_incentive)} + {formatCurrency(calculation.gartech_net)} = {formatCurrency(calculation.gross_harvest)}
+                {formatCurrency(calculation.partner_share)} (Partner) + {formatCurrency(calculation.staff_incentive)} (Staff) + {formatCurrency(calculation.expenses || 0)} (Expenses) + {formatCurrency(calculation.gartech_net)} (Net) = {formatCurrency(calculation.gross_harvest)}
               </div>
             </div>
           )}
