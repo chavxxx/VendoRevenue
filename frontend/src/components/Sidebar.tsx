@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'harvest-encoding', label: 'Encode Harvest', icon: PlusCircle, show: true },
     { id: 'harvests', label: 'Harvest Records', icon: Receipt, show: true },
     { id: 'reports', label: 'Financial Reports', icon: FileText, show: true },
-    { id: 'staff', label: 'Staff & Harvesters', icon: UserCheck, show: isAdmin },
+    { id: 'staff', label: 'Staff & Harvesters', icon: UserCheck, show: true },
     { id: 'settings', label: 'Settings & Customization', icon: Settings, show: isAdmin },
   ];
 

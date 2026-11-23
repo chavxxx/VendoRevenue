@@ -178,14 +178,22 @@ def create_vendo(
             raise HTTPException(status_code=400, detail="Invalid partner_id")
         vendo_data["partner_id"] = payload.partner_id
     
+    # Default installation date to today if omitted
+    if not vendo_data.get("installation_date"):
+        vendo_data["installation_date"] = date.today()
+
     # If city or province not provided, look up from system settings
     if not vendo_data.get("city_municipality") or not vendo_data.get("province"):
         sys_settings = db.query(SystemSetting).first()
         if sys_settings:
-            if not vendo_data.get("city_municipality"):
+            if not vendo_data.get("city_municipality") and sys_settings.default_city:
                 vendo_data["city_municipality"] = sys_settings.default_city
-            if not vendo_data.get("province"):
+            if not vendo_data.get("province") and sys_settings.default_province:
                 vendo_data["province"] = sys_settings.default_province
+    if not vendo_data.get("city_municipality"):
+        vendo_data["city_municipality"] = "Valencia"
+    if not vendo_data.get("province"):
+        vendo_data["province"] = "Bukidnon"
 
     vendo = VendoMachine(**vendo_data)
     db.add(vendo)
@@ -279,10 +287,11 @@ def update_vendo(
 def delete_vendo(
     vlan_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     """
     Permanently deletes a vendo machine and any related harvest records.
+    Allowed for both Admin and Staff Encoder.
     """
     vendo = db.query(VendoMachine).filter(VendoMachine.vlan_id == vlan_id).first()
     if not vendo:
@@ -310,7 +319,7 @@ def delete_vendo(
 @router.post("/clear-all")
 def clear_all_vendos(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     """
     Permanently deletes all vendo machines and all harvest transactions.

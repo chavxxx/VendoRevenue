@@ -100,7 +100,7 @@ def get_staff_detail(
 def create_staff(
     payload: StaffCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     existing = db.query(Staff).filter(Staff.staff_code == payload.staff_code).first()
     if existing:
@@ -139,7 +139,7 @@ def update_staff(
     id: int,
     payload: StaffUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     staff = db.query(Staff).filter(Staff.id == id).first()
     if not staff:
@@ -185,7 +185,7 @@ def update_staff(
 def delete_staff(
     id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     """
     Deletes a staff/harvester member, unlinking associated machines and users.

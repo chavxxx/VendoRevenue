@@ -169,6 +169,42 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return apiRequest(`/reports/custom?${query}`);
   },
+  downloadReport: async (format: 'excel' | 'csv' | 'pdf', params: Record<string, any> = {}) => {
+    const token = getAuthToken();
+    const query = new URLSearchParams(params).toString();
+    const headers = new Headers();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    const res = await fetch(`${API_BASE}/reports/export/${format}?${query}`, { headers });
+    if (!res.ok) {
+      let errText = 'Failed to download report';
+      try {
+        const errJson = await res.json();
+        errText = errJson.detail || errText;
+      } catch {
+        errText = await res.text();
+      }
+      throw new Error(errText);
+    }
+    const blob = await res.blob();
+    const contentDisposition = res.headers.get('content-disposition');
+    let filename = `gartech_report_${Date.now()}.${format === 'excel' ? 'xlsx' : format}`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename=(.+?)(?:;|$)/);
+      if (match && match[1]) {
+        filename = match[1].replace(/["']/g, '').trim();
+      }
+    }
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
 
   // Settings & Configuration
   getRevenueConfig: () => apiRequest('/users/config/revenue-share'),

@@ -31,7 +31,7 @@ def get_report_records(
 ):
     query = (
         db.query(HarvestTransaction)
-        .join(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)
+        .outerjoin(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)
         .outerjoin(Staff, HarvestTransaction.harvester_id == Staff.id)
         .outerjoin(Partner, HarvestTransaction.partner_id == Partner.id)
     )
@@ -284,6 +284,7 @@ def export_excel(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     period: Optional[str] = Query(None),
+    report_date: Optional[date] = Query(None),
     harvester_id: Optional[int] = Query(None),
     partner_id: Optional[int] = Query(None),
     vlan_id: Optional[int] = Query(None),
@@ -298,6 +299,9 @@ def export_excel(
             end_date = date(year + 1, 1, 1) - timedelta(days=1)
         else:
             end_date = date(year, month + 1, 1) - timedelta(days=1)
+    elif report_date and not start_date and not end_date:
+        start_date = report_date
+        end_date = report_date
             
     records = get_report_records(
         db,
@@ -375,6 +379,8 @@ def export_csv(
     scope: str = Query("all"),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
+    period: Optional[str] = Query(None),
+    report_date: Optional[date] = Query(None),
     harvester_id: Optional[int] = Query(None),
     partner_id: Optional[int] = Query(None),
     vlan_id: Optional[int] = Query(None),
@@ -382,6 +388,16 @@ def export_csv(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if period and not start_date and not end_date:
+        year, month = map(int, period.split("-"))
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+    elif report_date and not start_date and not end_date:
+        start_date = report_date
+        end_date = report_date
     records = get_report_records(
         db,
         scope=scope,

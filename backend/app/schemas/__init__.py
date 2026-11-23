@@ -170,7 +170,7 @@ class VendoBase(BaseModel):
     longitude: Optional[float] = None
     assigned_staff_id: Optional[int] = None
     assigned_harvester_id: Optional[int] = None
-    installation_date: date
+    installation_date: Optional[date] = None
     status: VendoStatus = VendoStatus.ACTIVE
     remarks: Optional[str] = None
 

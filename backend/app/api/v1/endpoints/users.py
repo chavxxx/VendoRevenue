@@ -36,7 +36,7 @@ def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     query = db.query(User)
     if role:
@@ -49,7 +49,7 @@ def list_users(
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     existing_user = db.query(User).filter(
         (User.username == payload.username) | (User.email == payload.email)
@@ -82,7 +82,7 @@ def update_user(
     id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     user = db.query(User).filter(User.id == id).first()
     if not user:
@@ -112,7 +112,7 @@ def update_user(
 def delete_user(
     id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.ADMIN]))
+    current_user: User = Depends(require_roles([UserRole.ADMIN, UserRole.STAFF_ENCODER]))
 ):
     """
     Deletes a user account. Admins cannot delete their own active account.

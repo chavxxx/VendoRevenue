@@ -87,26 +87,51 @@ export const ReportsPage: React.FC = () => {
     selectedCity, periodMonth, dailyDate, startDate, endDate, vlanId
   ]);
 
-  const getExportUrl = (format: 'pdf' | 'excel' | 'csv') => {
-    const params = new URLSearchParams({
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  const getExportParams = () => {
+    const params: Record<string, any> = {
       report_type: reportType,
       scope: scope,
-    });
+    };
     if (scope === 'individual_harvester' && selectedHarvesterId) {
-      params.append('harvester_id', selectedHarvesterId);
+      params.harvester_id = selectedHarvesterId;
     }
     if (scope === 'individual_partner' && selectedPartnerId) {
-      params.append('partner_id', selectedPartnerId);
+      params.partner_id = selectedPartnerId;
     }
     if (scope === 'group_location' && selectedCity) {
-      params.append('city', selectedCity);
+      params.city = selectedCity;
     }
-    if (reportType === 'monthly' && periodMonth) params.append('period', periodMonth);
-    if (reportType === 'daily' && dailyDate) params.append('report_date', dailyDate);
-    if ((reportType === 'weekly' || reportType === 'custom') && startDate) params.append('start_date', startDate);
-    if ((reportType === 'weekly' || reportType === 'custom') && endDate) params.append('end_date', endDate);
+    if (reportType === 'monthly' && periodMonth) params.period = periodMonth;
+    if (reportType === 'daily' && dailyDate) params.report_date = dailyDate;
+    if ((reportType === 'weekly' || reportType === 'custom') && startDate) params.start_date = startDate;
+    if ((reportType === 'weekly' || reportType === 'custom') && endDate) params.end_date = endDate;
+    if (vlanId) params.vlan_id = vlanId;
+    return params;
+  };
 
-    return `/api/v1/reports/export/${format}?${params.toString()}`;
+  const handleExportExcel = async () => {
+    setIsExportingExcel(true);
+    try {
+      await api.downloadReport('excel', getExportParams());
+    } catch (err: any) {
+      alert(`Excel export failed: ${err.message}`);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setIsExportingCsv(true);
+    try {
+      await api.downloadReport('csv', getExportParams());
+    } catch (err: any) {
+      alert(`CSV export failed: ${err.message}`);
+    } finally {
+      setIsExportingCsv(false);
+    }
   };
 
   const handlePrint = () => {
@@ -125,26 +150,26 @@ export const ReportsPage: React.FC = () => {
         </div>
 
         {/* Export Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={getExportUrl('excel')}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-            download
+        <div className="flex flex-wrap items-center gap-2 no-print">
+          <button
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Excel Export</span>
-          </a>
-          <a
-            href={getExportUrl('csv')}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-            download
+            <Download className={`w-3.5 h-3.5 ${isExportingExcel ? 'animate-spin' : ''}`} />
+            <span>{isExportingExcel ? 'Exporting...' : 'Excel Export'}</span>
+          </button>
+          <button
+            onClick={handleExportCsv}
+            disabled={isExportingCsv}
+            className="flex items-center space-x-1.5 px-3 py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer"
           >
-            <Table className="w-3.5 h-3.5" />
-            <span>CSV Export</span>
-          </a>
+            <Table className={`w-3.5 h-3.5 ${isExportingCsv ? 'animate-spin' : ''}`} />
+            <span>{isExportingCsv ? 'Exporting...' : 'CSV Export'}</span>
+          </button>
           <button
             onClick={handlePrint}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-sm transition"
+            className="flex items-center space-x-1.5 px-3 py-2 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print Report</span>
@@ -153,7 +178,7 @@ export const ReportsPage: React.FC = () => {
       </div>
 
       {/* Filter Options */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-4 transition">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm space-y-4 transition no-print">
         <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 dark:border-slate-800 pb-3">
           <span className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Report Frequency:</span>
           {(['daily', 'weekly', 'monthly', 'custom'] as const).map((t) => (

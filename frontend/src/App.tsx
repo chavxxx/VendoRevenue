@@ -56,7 +56,7 @@ const AppContent: React.FC = () => {
       case 'reports':
         return <ReportsPage />;
       case 'staff':
-        return isAdmin ? <StaffPage /> : <DashboardPage />;
+        return <StaffPage />;
       case 'settings':
         return isAdmin ? <SettingsPage /> : <DashboardPage />;
       default:

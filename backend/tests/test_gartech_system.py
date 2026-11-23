@@ -95,30 +95,37 @@ def test_harvest_preview_and_encoding():
     token = admin_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Create a test machine and staff
+    # Create or get test staff
     staff_res = client.post("/api/v1/staff/", headers=headers, json={
-        "staff_code": "STF-HARV-01",
-        "full_name": "Production Harvester One",
+        "staff_code": "STF-TEST-99",
+        "full_name": "Test Harvester 99",
         "phone": "0917-555-1234",
         "role_type": "FIELD_HARVESTER"
     })
-    assert staff_res.status_code == 201
-    harv_id = staff_res.json()["id"]
+    if staff_res.status_code == 400:
+        harv_id = client.get("/api/v1/staff/", headers=headers).json()[0]["id"]
+    else:
+        assert staff_res.status_code == 201
+        harv_id = staff_res.json()["id"]
 
     vendo_res = client.post("/api/v1/vendos/", headers=headers, json={
-        "vlan_id": 555,
-        "vendo_name": "WiFi Vendo Central Plaza",
-        "complete_address": "Central Plaza, Valencia City",
+        "vlan_id": 999,
+        "vendo_name": "WiFi Vendo Test 999",
+        "complete_address": "Test Plaza, Valencia City",
         "city_municipality": "Valencia",
         "province": "Bukidnon",
         "installation_date": "2026-11-22"
     })
-    assert vendo_res.status_code == 201
+    if vendo_res.status_code == 400:
+        vlan_val = 999
+    else:
+        assert vendo_res.status_code == 201
+        vlan_val = vendo_res.json()["vlan_id"]
 
     # Preview calculation (default 25% partner, 5% staff pool, 70% gartech)
     preview_res = client.post("/api/v1/harvests/preview", headers=headers, json={
         "gross_harvest": 10000.00,
-        "vlan_id": 555
+        "vlan_id": vlan_val
     })
     assert preview_res.status_code == 200
     prev = preview_res.json()

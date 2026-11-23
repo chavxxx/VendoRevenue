@@ -137,7 +137,7 @@ def list_harvests(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = db.query(HarvestTransaction).join(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)
+    query = db.query(HarvestTransaction).outerjoin(VendoMachine, HarvestTransaction.vendo_id == VendoMachine.id)
     
     if vlan_id:
         query = query.filter(HarvestTransaction.vlan_id == vlan_id)
